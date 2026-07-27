@@ -78,11 +78,24 @@ with st.expander("➕ Adicionar Produto", expanded=True):
 st.write("---")
 st.download_button("🖨️ BAIXAR index.html (PARA ATUALIZAR O SITE)", gerar_html_master(st.session_state.produtos_totais), "index.html", "text/html")
 
-# 4. LISTAGEM
+# 4. LISTAGEM (COM IMAGENS)
+st.write("---")
 for i, p in enumerate(st.session_state.produtos_totais):
-    cols = st.columns([4, 1])
-    cols[0].write(f"**{p.get('Nome')}** - R$ {p.get('Preco')}")
-    if cols[1].button("Excluir", key=f"d{i}"):
+    # Criamos 3 colunas: Imagem, Texto, Botão
+    cols = st.columns([1, 3, 1]) 
+    
+    # Exibe a foto se ela existir
+    imgs = get_imgs(p)
+    if imgs and imgs[0]: 
+        cols[0].image(imgs[0], width=80)
+    else:
+        cols[0].write("Sem foto")
+        
+    # Exibe o texto
+    cols[1].write(f"**{p.get('Nome')}** ({p.get('Categoria')}) - R$ {p.get('Preco')}")
+    
+    # Botão de exclusão
+    if cols[2].button("Excluir", key=f"d{i}"):
         st.session_state.produtos_totais.pop(i)
         salvar_catalogo(st.session_state.produtos_totais)
         st.rerun()
