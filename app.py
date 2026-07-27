@@ -13,8 +13,9 @@ if "produtos_totais" not in st.session_state: st.session_state.produtos_totais =
 def obter_imagem_como_base64(url):
     try:
         response = requests.get(url, timeout=5)
-        return f"data:image/jpeg;base64,{base64.b64encode(response.content).decode()}"
-    except: return "https://i.ibb.co/kV0jyTfK/logo.png"
+        # Retorna apenas o base64 puro
+        return base64.b64encode(response.content).decode()
+    except: return None
 
 def gerar_anuncio_ia(nome, especs):
     try:
@@ -27,7 +28,7 @@ def gerar_anuncio_ia(nome, especs):
 
 def gerar_html_master(lista):
     html = "<html><style>.card{border:1px solid #ddd; padding:15px; margin:10px; border-radius:10px; font-family:Arial;}</style><body>"
-    html += "<center><img src='https://i.ibb.co/kV0jyTfK/logo.png' width='200'><h1>CATÁLOGO MASTER ALPHAFEST</h1></center>"
+    html += "<center><h1>CATÁLOGO MASTER ALPHAFEST</h1></center>"
     df = pd.DataFrame(lista)
     for cat in df['Categoria'].unique():
         html += f"<h2>{cat}</h2>"
@@ -52,7 +53,7 @@ with st.expander("➕ Adicionar Novo Produto ao Catálogo"):
         especs = f"Tema: {tema}, Nome: {nome_pers}, Cor: {cor}"
         desc = gerar_anuncio_ia(nome, especs)
         st.session_state.produtos_totais.append({
-            "Nome": nome, "Categoria": cat, "Imagem": obter_imagem_como_base64(link_foto), 
+            "Nome": nome, "Categoria": cat, "Imagem_B64": obter_imagem_como_base64(link_foto), 
             "Descricao": desc, "Especificacoes": especs
         })
         st.success("Produto adicionado ao catálogo!")
@@ -64,7 +65,13 @@ if st.session_state.produtos_totais:
     st.subheader("Produtos no Catálogo Master")
     for i, p in enumerate(st.session_state.produtos_totais):
         c1, c2 = st.columns([1, 4])
-        c1.image(p['Imagem'], width=120)
+        
+        # CORREÇÃO: Exibição de imagem via markdown para aceitar Base64
+        if p['Imagem_B64']:
+            c1.markdown(f'<img src="data:image/jpeg;base64,{p["Imagem_B64"]}" width="120">', unsafe_allow_html=True)
+        else:
+            c1.image("https://i.ibb.co/kV0jyTfK/logo.png", width=120)
+            
         c2.write(f"**{p['Nome']}** | *{p['Categoria']}*")
         c2.caption(p['Descricao'])
         if c2.button("Excluir", key=f"del_{i}"):
