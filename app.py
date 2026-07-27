@@ -13,8 +13,8 @@ if "produtos_totais" not in st.session_state: st.session_state.produtos_totais =
 def obter_imagem_como_base64(url):
     try:
         response = requests.get(url, timeout=5)
-        return base64.b64encode(response.content).decode()
-    except: return None
+        return f"data:image/jpeg;base64,{base64.b64encode(response.content).decode()}"
+    except: return "https://i.ibb.co/kV0jyTfK/logo.png"
 
 def gerar_anuncio_ia(nome, especs):
     try:
@@ -26,13 +26,34 @@ def gerar_anuncio_ia(nome, especs):
     except: return f"{nome} - {especs}"
 
 def gerar_html_master(lista):
-    html = "<html><style>.card{border:1px solid #ddd; padding:15px; margin:10px; border-radius:10px; font-family:Arial;}</style><body>"
-    html += "<center><h1>CATÁLOGO MASTER ALPHAFEST</h1></center>"
+    # Layout igual ao que você mostrou: menu de categorias + cards com imagem à esquerda
+    html = """
+    <html><head><style>
+        body { font-family: Arial; padding: 20px; }
+        .card { display: flex; border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; align-items: center; }
+        .card img { width: 120px; margin-right: 20px; }
+        .menu { background: #f9f9f9; padding: 15px; border: 1px solid #ddd; margin-bottom: 20px; }
+    </style></head><body>
+    <center><h1>CATÁLOGO MASTER - ALPHAFEST ITATIBA</h1></center>
+    """
     df = pd.DataFrame(lista)
+    
+    # Menu de Categorias
+    html += "<div class='menu'><h3>Selecione a Categoria:</h3><ul>"
     for cat in df['Categoria'].unique():
-        html += f"<h2>{cat}</h2>"
+        html += f"<li><a href='#{cat}'>{cat}</a></li>"
+    html += "</ul></div>"
+    
+    # Produtos agrupados
+    for cat in df['Categoria'].unique():
+        html += f"<h2 id='{cat}'>📁 {cat}</h2>"
         for _, p in df[df['Categoria']==cat].iterrows():
-            html += f"<div class='card'><h3>{p['Nome']}</h3><p>{p['Descricao']}</p></div>"
+            html += f"""
+            <div class='card'>
+                <img src='{p['Imagem']}'>
+                <div><h3>{p['Nome']}</h3><p>{p['Descricao']}</p></div>
+            </div>
+            """
     return html + "</body></html>"
 
 # --- INTERFACE ---
@@ -52,8 +73,8 @@ with st.expander("➕ Adicionar Novo Produto ao Catálogo"):
         especs = f"Tema: {tema}, Nome: {nome_pers}, Cor: {cor}"
         desc = gerar_anuncio_ia(nome, especs)
         st.session_state.produtos_totais.append({
-            "Nome": nome, "Categoria": cat, "Imagem_B64": obter_imagem_como_base64(link_foto), 
-            "Descricao": desc, "Especificacoes": especs
+            "Nome": nome, "Categoria": cat, "Imagem": obter_imagem_como_base64(link_foto), 
+            "Descricao": desc
         })
         st.success("Produto adicionado ao catálogo!")
         st.rerun()
@@ -64,16 +85,9 @@ if st.session_state.produtos_totais:
     st.subheader("Produtos no Catálogo Master")
     for i, p in enumerate(st.session_state.produtos_totais):
         c1, c2 = st.columns([1, 4])
-        
-        # USO DO .get() PARA EVITAR KEYERROR
-        img_data = p.get('Imagem_B64')
-        if img_data:
-            c1.markdown(f'<img src="data:image/jpeg;base64,{img_data}" width="120">', unsafe_allow_html=True)
-        else:
-            c1.image("https://i.ibb.co/kV0jyTfK/logo.png", width=120)
-            
-        c2.write(f"**{p.get('Nome', 'Sem Nome')}** | *{p.get('Categoria', 'Sem Categoria')}*")
-        c2.caption(p.get('Descricao', ''))
+        c1.image(p['Imagem'], width=120)
+        c2.write(f"**{p['Nome']}** | *{p['Categoria']}*")
+        c2.caption(p['Descricao'])
         if c2.button("Excluir", key=f"del_{i}"):
             st.session_state.produtos_totais.pop(i)
             st.rerun()
