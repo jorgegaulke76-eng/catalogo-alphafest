@@ -7,7 +7,7 @@ from groq import Groq
 from bs4 import BeautifulSoup
 
 # --- CONFIGURAÇÕES ---
-# O Streamlit vai ler a chave do seu painel 'Secrets'
+# O Streamlit lê a chave do painel 'Secrets'
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 # --- INICIALIZAÇÃO DE ESTADO ---
@@ -47,14 +47,21 @@ def gerar_html_catalogo(lista_produtos):
     categorias = df['Categoria'].unique()
     capa_links = "".join([f"<li><a href='#{c.replace(' ', '_')}'>{c}</a></li>" for c in categorias])
     
+    # URL DO SEU LOGO
+    LOGO_URL = "https://i.ibb.co/kV0jyTfK/logo.png" 
+    
     html = f"""<!DOCTYPE html><html><head><style>
         body{{font-family: sans-serif; padding: 20px; background-color: #f9f9f9;}} 
-        .capa{{background: white; padding: 20px; border-radius: 10px; margin-bottom: 30px; text-align: center;}}
+        .logo{{max-width: 250px; display: block; margin: 0 auto 20px auto;}}
+        .capa{{background: white; padding: 20px; border-radius: 10px; margin-bottom: 30px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}}
         .categoria-section{{page-break-before: always; margin-top: 40px;}}
         .card{{display: flex; align-items: center; background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}} 
-        img{{width: 100px; height: 100px; object-fit: cover; cursor: pointer;}}
+        img{{width: 100px; height: 100px; object-fit: cover; cursor: pointer; border-radius: 5px;}}
+        h1, h2{{color: #2c3e50;}}
     </style></head><body>
-    <h1>CATÁLOGO MASTER - ALPHAFEST</h1>
+    
+    <img src="{LOGO_URL}" class="logo">
+    <h1 style="text-align: center;">CATÁLOGO MASTER - ALPHAFEST</h1>
     <div class="capa"><h3>Menu de Categorias:</h3><ul>{capa_links}</ul></div>"""
     
     for categoria, group in df.groupby('Categoria'):
@@ -70,18 +77,31 @@ st.title("📦 ALPHAFEST - Gestor de Catálogo Master")
 
 c1, c2 = st.columns(2)
 with c1:
+    st.subheader("🔗 Adicionar via Link")
     cat_link = st.text_input("Categoria:", "Outros")
     link = st.text_area("Cole a URL da Imagem:")
     nome_p = st.text_input("Nome do Produto:")
     if st.button("Adicionar Link"):
-        st.session_state.produtos_totais.append({"Nome_Exibicao": nome_p, "Imagem": obter_imagem_como_base64(link), "Descrição": gerar_anuncio_ia(nome_p), "Categoria": cat_link})
-        st.rerun()
+        if link:
+            st.session_state.produtos_totais.append({"Nome_Exibicao": nome_p, "Imagem": obter_imagem_como_base64(link), "Descrição": gerar_anuncio_ia(nome_p), "Categoria": cat_link})
+            st.rerun()
 
 with c2:
-    foto = st.file_uploader("Upload foto", type=['jpg', 'png'])
+    st.subheader("📁 Adicionar via Upload")
+    cat_up = st.text_input("Categoria (Upload):", "Outros")
+    foto = st.file_uploader("Upload foto", type=['jpg', 'png', 'jpeg'])
+    nome_p_up = st.text_input("Nome do Produto (Upload):")
     if st.button("Adicionar Foto") and foto:
-        st.session_state.produtos_totais.append({"Nome_Exibicao": "Produto", "Imagem": image_to_base64(foto), "Descrição": "...", "Categoria": cat_link})
+        st.session_state.produtos_totais.append({"Nome_Exibicao": nome_p_up, "Imagem": image_to_base64(foto), "Descrição": gerar_anuncio_ia(nome_p_up), "Categoria": cat_up})
         st.rerun()
 
+st.divider()
 if st.button("GERAR CATÁLOGO MASTER FINAL"):
-    st.download_button("🖨️ Baixar HTML Master", gerar_html_catalogo(st.session_state.produtos_totais), "catalogo_master.html", "text/html")
+    if st.session_state.produtos_totais:
+        st.download_button("🖨️ Baixar HTML Master", gerar_html_catalogo(st.session_state.produtos_totais), "catalogo_master.html", "text/html")
+    else:
+        st.warning("Adicione produtos primeiro!")
+
+if st.button("Limpar Tudo e Recomeçar"):
+    st.session_state.produtos_totais = []
+    st.rerun()
