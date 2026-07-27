@@ -13,7 +13,6 @@ if "produtos_totais" not in st.session_state: st.session_state.produtos_totais =
 def obter_imagem_como_base64(url):
     try:
         response = requests.get(url, timeout=5)
-        # Retorna apenas o base64 puro
         return base64.b64encode(response.content).decode()
     except: return None
 
@@ -66,14 +65,15 @@ if st.session_state.produtos_totais:
     for i, p in enumerate(st.session_state.produtos_totais):
         c1, c2 = st.columns([1, 4])
         
-        # CORREÇÃO: Exibição de imagem via markdown para aceitar Base64
-        if p['Imagem_B64']:
-            c1.markdown(f'<img src="data:image/jpeg;base64,{p["Imagem_B64"]}" width="120">', unsafe_allow_html=True)
+        # USO DO .get() PARA EVITAR KEYERROR
+        img_data = p.get('Imagem_B64')
+        if img_data:
+            c1.markdown(f'<img src="data:image/jpeg;base64,{img_data}" width="120">', unsafe_allow_html=True)
         else:
             c1.image("https://i.ibb.co/kV0jyTfK/logo.png", width=120)
             
-        c2.write(f"**{p['Nome']}** | *{p['Categoria']}*")
-        c2.caption(p['Descricao'])
+        c2.write(f"**{p.get('Nome', 'Sem Nome')}** | *{p.get('Categoria', 'Sem Categoria')}*")
+        c2.caption(p.get('Descricao', ''))
         if c2.button("Excluir", key=f"del_{i}"):
             st.session_state.produtos_totais.pop(i)
             st.rerun()
