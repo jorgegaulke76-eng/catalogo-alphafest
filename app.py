@@ -29,8 +29,12 @@ def get_imgs(p):
     if p.get('Imagem'): return [p.get('Imagem')]
     return []
 
-# --- GERAÇÃO DO HTML (COM ZOOM) ---
+# --- GERAÇÃO DO HTML (AGRUPADO POR CATEGORIA) ---
 def gerar_html_master(lista):
+    if not lista: return "<html><body><h1>Catálogo Vazio</h1></body></html>"
+    
+    df = pd.DataFrame(lista)
+    
     html = """
     <html><head><style>
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f4f4; padding: 20px; color: #333; }
@@ -38,15 +42,15 @@ def gerar_html_master(lista):
         header { text-align: center; margin-bottom: 40px; }
         header img { width: 180px; margin-bottom: 15px; }
         header h1 { color: #2c3e50; margin: 0; font-size: 2.5em; }
+        .categoria-titulo { color: #e67e22; border-bottom: 2px solid #e67e22; padding-bottom: 10px; margin-top: 40px; margin-bottom: 20px; }
         .card { background: white; border-radius: 12px; display: flex; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .galeria { flex: 0 0 150px; cursor: pointer; }
         .galeria img { width: 130px; height: 130px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; transition: transform 0.2s; }
         .galeria img:hover { transform: scale(1.05); }
         .info { flex: 1; padding-left: 20px; }
-        .info h3 { margin: 0 0 10px 0; color: #e67e22; font-size: 1.5em; }
+        .info h3 { margin: 0 0 10px 0; color: #2c3e50; font-size: 1.5em; }
         .desc { color: #666; font-size: 1em; line-height: 1.5; margin-bottom: 10px; }
         .preco { color: #27ae60; font-weight: bold; font-size: 1.3em; display: block; }
-        /* Modal para Zoom */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); }
         .modal-content { margin: auto; display: block; max-width: 80%; max-height: 80%; margin-top: 50px; }
     </style></head><body>
@@ -57,18 +61,23 @@ def gerar_html_master(lista):
         </header>
     """
     
-    for p in lista:
-        imgs = get_imgs(p)
-        img_html = f"<div class='galeria' onclick=\"openModal('{imgs[0]}')\"><img src='{imgs[0]}'></div>" if imgs else ""
-        html += f"""
-        <div class='card'>
-            {img_html}
-            <div class='info'>
-                <h3>{p.get('Nome', 'Sem nome')}</h3>
-                <div class='desc'>{p.get('Descricao', '')}</div>
-                <span class='preco'>R$ {p.get('Preco', '0')}</span>
-            </div>
-        </div>"""
+    # Agrupamento por Categoria
+    for categoria in df['Categoria'].unique():
+        html += f"<h2 class='categoria-titulo'>{categoria}</h2>"
+        produtos_da_categoria = df[df['Categoria'] == categoria]
+        
+        for _, p in produtos_da_categoria.iterrows():
+            imgs = get_imgs(p)
+            img_html = f"<div class='galeria' onclick=\"openModal('{imgs[0]}')\"><img src='{imgs[0]}'></div>" if imgs else ""
+            html += f"""
+            <div class='card'>
+                {img_html}
+                <div class='info'>
+                    <h3>{p.get('Nome', 'Sem nome')}</h3>
+                    <div class='desc'>{p.get('Descricao', '')}</div>
+                    <span class='preco'>R$ {p.get('Preco', '0')}</span>
+                </div>
+            </div>"""
     
     html += """
     <div id="myModal" class="modal" onclick="this.style.display='none'">
@@ -107,12 +116,12 @@ with st.expander("➕ Adicionar/Editar Produto", expanded=True):
         salvar_catalogo(st.session_state.produtos_totais)
         st.rerun()
 
-# --- LISTA ---
+# --- LISTA DE PRODUTOS ---
 for i, p in enumerate(st.session_state.produtos_totais):
     cols = st.columns([1, 4, 1])
     imgs = get_imgs(p)
     if imgs: cols[0].image(imgs[0], width=80)
-    cols[1].write(f"**{p.get('Nome')}** - R$ {p.get('Preco')}")
+    cols[1].write(f"**{p.get('Nome')}** ({p.get('Categoria')}) - R$ {p.get('Preco')}")
     if cols[2].button("Editar", key=f"e{i}"):
         st.session_state.edit_index = i
         st.rerun()
