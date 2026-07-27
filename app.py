@@ -73,7 +73,13 @@ def gerar_html_catalogo(lista_produtos):
 
 # --- INTERFACE ---
 st.set_page_config(page_title="Catálogo Master", layout="wide")
-st.title("📦 ALPHAFEST - Gestor de Catálogo Master")
+
+# Cabeçalho com Logo
+col1_h, col2_h = st.columns([1, 10])
+with col1_h:
+    st.image("https://i.ibb.co/kV0jyTfK/logo.png", width=80)
+with col2_h:
+    st.title("ALPHAFEST - Gestor de Catálogo Master")
 
 c1, c2 = st.columns(2)
 with c1:
