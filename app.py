@@ -42,7 +42,7 @@ col1_h, col2_h = st.columns([1, 10])
 with col1_h: st.image("https://i.ibb.co/kV0jyTfK/logo.png", width=80)
 with col2_h: st.title("ALPHAFEST - Painel de Controle")
 
-tab1, tab2 = st.tabs(["📦 Gestor de Catálogo", "🧮 Precificador"])
+tab1, tab2 = st.tabs(["📦 Gestor de Catálogo", "🧮 Precificador de Peças 3D"])
 
 with tab1:
     c1, c2 = st.columns(2)
@@ -66,11 +66,13 @@ with tab1:
         st.download_button("🖨️ Baixar HTML Master", gerar_html_catalogo(st.session_state.produtos_totais), "catalogo_master.html", "text/html")
 
 with tab2:
-    st.subheader("Calculadora de Precificação")
-    tipo = st.selectbox("Selecione o produto:", ["Topo de Bolo", "Bubble", "Copo Long Drink", "Copo Térmico"])
-    if tipo == "Topo de Bolo":
-        tempo_imp = st.number_input("Tempo Impressão (min)", 0.0)
-        tempo_arte = st.number_input("Tempo Arte (min)", 0.0)
-        energia = st.number_input("Custo Energia (R$)", 0.0)
-        total = (tempo_imp * 0.5) + (tempo_arte * 0.8) + 1.00 + 0.16 + 1.20 + energia
-        st.success(f"### Valor de Venda Sugerido: R$ {total:.2f}")
+    st.subheader("Calculadora de Peças 3D")
+    tempo_impressao = st.number_input("Tempo de Impressão (Horas)", min_value=0.0, step=0.1)
+    custo_material = st.number_input("Custo do Material (R$)", min_value=0.0, step=0.1)
+    energia_setup = st.number_input("Energia e Setup (R$)", min_value=0.0, step=0.1)
+    
+    # Exemplo de fórmula: você pode ajustar o valor da hora máquina conforme sua necessidade
+    valor_hora_maquina = 8.00 
+    total_3d = (tempo_impressao * valor_hora_maquina) + custo_material + energia_setup
+    
+    st.success(f"### Valor de Venda Sugerido: R$ {total_3d:.2f}")
