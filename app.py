@@ -26,12 +26,17 @@ def gerar_anuncio_ia(nome, especs):
     except: return f"{nome} - {especs}"
 
 def gerar_html_master(lista):
+    # CSS e JS para o efeito de zoom na imagem
     html = """
     <html><head><style>
         body { font-family: Arial; padding: 20px; }
         .card { display: flex; border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; align-items: center; }
-        .card img { width: 120px; margin-right: 20px; }
+        .card img { width: 150px; margin-right: 20px; cursor: pointer; transition: 0.3s; }
+        .card img:hover { opacity: 0.7; }
         .menu { background: #f9f9f9; padding: 15px; border: 1px solid #ddd; margin-bottom: 20px; }
+        /* Modal do Zoom */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); }
+        .modal-content { margin: auto; display: block; max-width: 80%; max-height: 80%; margin-top: 50px; }
     </style></head><body>
     <center><h1>CATÁLOGO MASTER - ALPHAFEST ITATIBA</h1></center>
     """
@@ -44,15 +49,28 @@ def gerar_html_master(lista):
     for cat in df['Categoria'].unique():
         html += f"<h2 id='{cat}'>📁 {cat}</h2>"
         for _, p in df[df['Categoria']==cat].iterrows():
-            # Usa .get para evitar erro se a chave faltar
             img_src = p.get('Imagem', 'https://i.ibb.co/kV0jyTfK/logo.png')
             html += f"""
             <div class='card'>
-                <img src='{img_src}'>
+                <img src='{img_src}' onclick="openModal('{img_src}')">
                 <div><h3>{p['Nome']}</h3><p>{p['Descricao']}</p></div>
             </div>
             """
-    return html + "</body></html>"
+    
+    # Scripts para abrir e fechar a imagem
+    html += """
+    <div id="myModal" class="modal" onclick="this.style.display='none'">
+        <img class="modal-content" id="img01">
+    </div>
+    <script>
+        function openModal(src) {
+            document.getElementById('myModal').style.display = 'block';
+            document.getElementById('img01').src = src;
+        }
+    </script>
+    </body></html>
+    """
+    return html
 
 # --- INTERFACE ---
 st.title("📦 Gestor de Catálogo Master")
@@ -83,7 +101,6 @@ if st.session_state.produtos_totais:
     st.subheader("Produtos no Catálogo Master")
     for i, p in enumerate(st.session_state.produtos_totais):
         c1, c2 = st.columns([1, 4])
-        # Correção com .get()
         c1.image(p.get('Imagem', 'https://i.ibb.co/kV0jyTfK/logo.png'), width=120)
         c2.write(f"**{p.get('Nome', 'Sem Nome')}** | *{p.get('Categoria', 'Sem Cat.')}*")
         c2.caption(p.get('Descricao', ''))
