@@ -23,68 +23,70 @@ if "produtos_totais" not in st.session_state:
 
 def get_imgs(p):
     imgs = p.get('Imagens', [])
-    if isinstance(imgs, list) and len(imgs) > 0: return imgs
-    return []
+    return imgs if isinstance(imgs, list) else []
 
-# --- INTERFACE ---
-st.title("📦 Gestor Alphafest (Admin)")
+# --- DETECTAR MODO (ADMIN OU CLIENTE) ---
+query_params = st.query_params
+if query_params.get("mode") == "catalogo":
+    # --- VISÃO DO CLIENTE ---
+    st.markdown("<h1 style='text-align:center;'>Catálogo Alphafest</h1>", unsafe_allow_html=True)
+    df = pd.DataFrame(st.session_state.produtos_totais)
+    if not df.empty:
+        for cat in df['Categoria'].unique():
+            st.subheader(f"📁 {cat}")
+            for _, p in df[df['Categoria'] == cat].iterrows():
+                cols = st.columns([1, 4])
+                imgs = get_imgs(p)
+                if imgs: cols[0].image(imgs[0], width=150)
+                cols[1].write(f"### {p.get('Nome', 'Produto')}")
+                cols[1].write(f"_{p.get('Descricao', '')}_")
+                cols[1].write(f"**R$ {p.get('Preco', '0')}**")
+                cols[1].markdown("---")
+    else:
+        st.write("Catálogo em atualização. Volte em breve!")
 
-# 1. SEGURANÇA E BACKUP
-st.subheader("Segurança de Dados")
-col_bkp1, col_bkp2 = st.columns(2)
-
-# Botão de Download
-if st.session_state.produtos_totais:
-    col_bkp1.download_button(
-        label="💾 Baixar Backup da Base de Dados",
-        data=json.dumps(st.session_state.produtos_totais, indent=4),
-        file_name="catalogo_db_backup.json",
-        mime="application/json"
-    )
-
-# Botão de Upload
-uploaded_file = col_bkp2.file_uploader("Carregar Backup (JSON)", type=['json'])
-if uploaded_file is not None:
-    try:
-        data = json.load(uploaded_file)
-        st.session_state.produtos_totais = data
-        salvar_catalogo(data)
-        st.success("Dados restaurados com sucesso!")
-        st.rerun()
-    except:
-        st.error("Erro ao ler o arquivo de backup.")
-
-# 2. GESTOR DE PRODUTOS
-st.write("---")
-with st.expander("➕ Adicionar/Editar Produto", expanded=True):
-    col1, col2 = st.columns(2)
-    cat = col1.text_input("Categoria")
-    nome = col1.text_input("Nome do Produto")
-    links = col1.text_area("URLs das Fotos (uma por linha)")
-    preco = col2.text_input("Preço (R$)")
-    desc = col2.text_area("Descrição")
+else:
+    # --- VISÃO DO ADMIN ---
+    st.title("📦 Gestor Alphafest (Admin)")
     
-    if st.button("Salvar Produto"):
-        novo_item = {
-            "Nome": nome, 
-            "Categoria": cat, 
-            "Imagens": [l.strip() for l in links.split('\n') if l.strip()], 
-            "Descricao": desc, 
-            "Preco": preco
-        }
-        st.session_state.produtos_totais.append(novo_item)
-        salvar_catalogo(st.session_state.produtos_totais)
-        st.success("Produto salvo!")
-        st.rerun()
+    # Gerar link para o cliente
+    base_url = st.query_params.get("mode") # Placeholder lógico
+    st.success("Você está no modo Admin. Copie o link abaixo para enviar ao seu cliente:")
+    # Nota: No Streamlit Cloud, o link é o seu URL atual + ?mode=catalogo
+    link_cliente = f"https://catalogo-alphafest.streamlit.app/?mode=catalogo"
+    st.code(link_cliente, language="text")
+    
+    with st.expander("➕ Adicionar/Editar Produto", expanded=True):
+        col1, col2 = st.columns(2)
+        cat = col1.text_input("Categoria")
+        nome = col1.text_input("Nome do Produto")
+        links = col1.text_area("URLs das Fotos (uma por linha)")
+        preco = col2.text_input("Preço (R$)")
+        desc = col2.text_area("Descrição")
+        
+        if st.button("Salvar Produto"):
+            novo_item = {
+                "Nome": nome, "Categoria": cat, 
+                "Imagens": [l.strip() for l in links.split('\n') if l.strip()], 
+                "Descricao": desc, "Preco": preco
+            }
+            st.session_state.produtos_totais.append(novo_item)
+            salvar_catalogo(st.session_state.produtos_totais)
+            st.success("Produto salvo!")
+            st.rerun()
 
-# 3. LISTAGEM E EXCLUSÃO
-st.write("---")
-for i, p in enumerate(st.session_state.produtos_totais):
-    cols = st.columns([1, 4, 1])
-    imgs = get_imgs(p)
-    if imgs: cols[0].image(imgs[0], width=80)
-    cols[1].write(f"**{p.get('Nome')}** ({p.get('Categoria')}) - R$ {p.get('Preco')}")
-    if cols[2].button("Excluir", key=f"d{i}"):
-        st.session_state.produtos_totais.pop(i)
-        salvar_catalogo(st.session_state.produtos_totais)
-        st.rerun()
+    # Botões de Backup/Upload
+    col_bkp1, col_bkp2 = st.columns(2)
+    col_bkp1.download_button("💾 Baixar Backup", data=json.dumps(st.session_state.produtos_totais), file_name="backup.json")
+    
+    # Listagem para edição
+    st.write("---")
+    for i, p in enumerate(st.session_state.produtos_totais):
+        cols = st.columns([1, 4, 1])
+        imgs = get_imgs(p)
+        if imgs: cols[0].image(imgs[0], width=80)
+        cols[1].write(f"**{p.get('Nome')}** - R$ {p.get('Preco')}")
+        if cols[2].button("Excluir", key=f"d{i}"):
+            st.session_state.produtos_totais.pop(i)
+            salvar_catalogo(st.session_state.produtos_totais)
+            st.rerun()
