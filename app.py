@@ -1,11 +1,13 @@
 import streamlit as st
 import pandas as pd
+import requests
 import json
 import os
 
 st.set_page_config(page_title="Gestor Alphafest Master", layout="wide")
 DB_FILE = "catalogo_db.json"
 
+# --- PERSISTÊNCIA ---
 def carregar_catalogo():
     if os.path.exists(DB_FILE):
         with open(DB_FILE, "r", encoding="utf-8") as f:
@@ -21,25 +23,41 @@ if "produtos_totais" not in st.session_state:
     st.session_state.produtos_totais = carregar_catalogo()
 if "edit_index" not in st.session_state: st.session_state.edit_index = None
 
-# --- FUNÇÃO QUE RECUPERA IMAGENS DE QUALQUER VERSÃO ---
+# --- FUNÇÃO DE RECUPERAÇÃO ---
 def get_imgs(p):
-    # Tenta na lista nova 'Imagens', depois na string antiga 'Imagem'
     imgs = p.get('Imagens')
     if isinstance(imgs, list) and len(imgs) > 0: return imgs
     if p.get('Imagem'): return [p.get('Imagem')]
     return []
 
+# --- GERAÇÃO DO HTML (COM DESCRIÇÃO) ---
 def gerar_html_master(lista):
-    html = "<html><head><style>.card{display:flex; border:1px solid #ddd; padding:15px; margin:10px 0; border-radius:8px; align-items:center;} .galeria img {width:80px; margin-right:10px;}</style></head><body><h1>CATÁLOGO MASTER</h1>"
+    html = """<html><head><style>
+        body { font-family: Arial; padding: 20px; }
+        .card { display: flex; border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; align-items: center;} 
+        .galeria { display: flex; gap: 10px; margin-right: 20px; flex-wrap: wrap; }
+        .galeria img { width: 100px; height: 100px; object-fit: cover; }
+        .preco { font-weight: bold; color: #2e7d32; display: block; margin-top: 5px; }
+        .desc { color: #555; font-size: 0.9em; margin-top: 5px; }
+    </style></head><body><center><h1>CATÁLOGO MASTER - ALPHAFEST ITATIBA</h1></center>"""
+    
     for p in lista:
         imgs = get_imgs(p)
         img_tag = f"<div class='galeria'>{''.join([f'<img src=\"{i}\">' for i in imgs])}</div>" if imgs else ""
-        html += f"<div class='card'>{img_tag}<div><h3>{p.get('Nome', 'Sem nome')}</h3><p>R$ {p.get('Preco', '0')}</p></div></div>"
+        html += f"""
+        <div class='card'>
+            {img_tag}
+            <div>
+                <h3>{p.get('Nome', 'Sem nome')}</h3>
+                <div class='desc'>{p.get('Descricao', '')}</div>
+                <span class='preco'>R$ {p.get('Preco', '0')}</span>
+            </div>
+        </div>"""
     return html + "</body></html>"
 
+# --- INTERFACE ---
 st.title("📦 Gestor de Catálogo Master")
 
-# Formulario de Adição/Edição
 is_editing = st.session_state.edit_index is not None
 edit_data = st.session_state.produtos_totais[st.session_state.edit_index] if is_editing else {}
 
@@ -49,7 +67,7 @@ with st.expander("➕ Adicionar/Editar Produto", expanded=True):
     nome = col1.text_input("Nome do Produto", value=edit_data.get("Nome", ""))
     links = col1.text_area("URLs das Fotos (uma por linha):", value="\n".join(get_imgs(edit_data)))
     preco = col2.text_input("Preço (R$)", value=edit_data.get("Preco", "0"))
-    desc = col2.text_input("Descrição", value=edit_data.get("Descricao", ""))
+    desc = col2.text_area("Descrição do Produto", value=edit_data.get("Descricao", ""))
     
     if st.button("Salvar Produto"):
         novo_item = {"Nome": nome, "Categoria": cat, "Imagens": [l.strip() for l in links.split('\n') if l.strip()], "Descricao": desc, "Preco": preco}
@@ -61,7 +79,7 @@ with st.expander("➕ Adicionar/Editar Produto", expanded=True):
         salvar_catalogo(st.session_state.produtos_totais)
         st.rerun()
 
-# Lista de Produtos
+# --- LISTA ---
 for i, p in enumerate(st.session_state.produtos_totais):
     cols = st.columns([1, 4, 1])
     imgs = get_imgs(p)
@@ -75,4 +93,4 @@ for i, p in enumerate(st.session_state.produtos_totais):
         salvar_catalogo(st.session_state.produtos_totais)
         st.rerun()
 
-st.download_button("🖨️ BAIXAR HTML", gerar_html_master(st.session_state.produtos_totais), "catalogo.html", "text/html")
+st.download_button("🖨️ BAIXAR HTML COMPLETO", gerar_html_master(st.session_state.produtos_totais), "catalogo.html", "text/html")
