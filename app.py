@@ -24,7 +24,7 @@ def salvar_catalogo(lista):
 if "produtos_totais" not in st.session_state: 
     st.session_state.produtos_totais = carregar_catalogo()
 
-# --- GERAÇÃO DO HTML (COM GALERIA) ---
+# --- GERAÇÃO DO HTML (COM SEGURANÇA REFORÇADA) ---
 def gerar_html_master(lista):
     html = """
     <html><head><style>
@@ -50,8 +50,11 @@ def gerar_html_master(lista):
     for cat in df['Categoria'].unique():
         html += f"<h2 id='{cat}'>📁 {cat}</h2>"
         for _, p in df[df['Categoria']==cat].iterrows():
-            # Processa a lista de imagens
+            # SEGURANÇA: Garante que 'imagens' seja sempre uma lista, nunca nulo ou string
             imagens = p.get('Imagens', [])
+            if not isinstance(imagens, list): 
+                imagens = []
+                
             html += f"<div class='card'><div class='galeria'>"
             for img in imagens:
                 html += f"<img src='{img}' onclick=\"openModal('{img}')\">"
@@ -78,16 +81,13 @@ with st.expander("➕ Adicionar Novo Produto"):
     col1, col2 = st.columns(2)
     cat = col1.text_input("Categoria", "Geral")
     nome = col1.text_input("Nome do Produto")
-    # Campo novo: recebe várias URLs
-    links_fotos = col1.text_area("URLs das Fotos (cole uma URL por linha):")
+    links_fotos = col1.text_area("URLs das Fotos (uma por linha):")
     
     tema = col2.text_input("Tema/Ocasião")
     cor = col2.text_input("Cor/Material")
     
     if st.button("Adicionar ao Master"):
         lista_imgs = [url.strip() for url in links_fotos.split('\n') if url.strip()]
-        if not lista_imgs: lista_imgs = ["https://i.ibb.co/kV0jyTfK/logo.png"]
-        
         novo_item = {
             "Nome": nome, 
             "Categoria": cat, 
@@ -99,18 +99,21 @@ with st.expander("➕ Adicionar Novo Produto"):
         st.success("Produto adicionado!")
         st.rerun()
 
-# --- VISUALIZAÇÃO E DOWNLOAD ---
-if st.session_state.produtos_totais:
-    st.write("---")
-    for i, p in enumerate(st.session_state.produtos_totais):
-        c1, c2 = st.columns([1, 4])
-        # Mostra a primeira foto como miniatura no gestor
-        imgs = p.get('Imagens', [])
-        c1.image(imgs[0] if imgs else "https://i.ibb.co/kV0jyTfK/logo.png", width=100)
-        c2.write(f"**{p.get('Nome')}** ({len(imgs)} fotos)")
-        if c2.button("Excluir", key=f"del_{i}"):
-            st.session_state.produtos_totais.pop(i)
-            salvar_catalogo(st.session_state.produtos_totais)
-            st.rerun()
+# --- VISUALIZAÇÃO ---
+st.write("---")
+for i, p in enumerate(st.session_state.produtos_totais):
+    c1, c2 = st.columns([1, 4])
+    imgs = p.get('Imagens', [])
+    if isinstance(imgs, list) and len(imgs) > 0:
+        c1.image(imgs[0], width=100)
+    else:
+        c1.write("Sem foto")
+        
+    c2.write(f"**{p.get('Nome')}** ({len(imgs) if isinstance(imgs, list) else 0} fotos)")
+    if c2.button("Excluir", key=f"del_{i}"):
+        st.session_state.produtos_totais.pop(i)
+        salvar_catalogo(st.session_state.produtos_totais)
+        st.rerun()
             
-    st.download_button("🖨️ BAIXAR CATÁLOGO MASTER (HTML)", gerar_html_master(st.session_state.produtos_totais), "catalogo_master.html", "text/html")
+st.write("---")
+st.download_button("🖨️ BAIXAR CATÁLOGO MASTER (HTML)", gerar_html_master(st.session_state.produtos_totais), "catalogo_master.html", "text/html")
