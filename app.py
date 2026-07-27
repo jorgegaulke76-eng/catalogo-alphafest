@@ -26,7 +26,6 @@ def gerar_anuncio_ia(nome, especs):
     except: return f"{nome} - {especs}"
 
 def gerar_html_master(lista):
-    # Layout igual ao que você mostrou: menu de categorias + cards com imagem à esquerda
     html = """
     <html><head><style>
         body { font-family: Arial; padding: 20px; }
@@ -37,20 +36,19 @@ def gerar_html_master(lista):
     <center><h1>CATÁLOGO MASTER - ALPHAFEST ITATIBA</h1></center>
     """
     df = pd.DataFrame(lista)
-    
-    # Menu de Categorias
     html += "<div class='menu'><h3>Selecione a Categoria:</h3><ul>"
     for cat in df['Categoria'].unique():
         html += f"<li><a href='#{cat}'>{cat}</a></li>"
     html += "</ul></div>"
     
-    # Produtos agrupados
     for cat in df['Categoria'].unique():
         html += f"<h2 id='{cat}'>📁 {cat}</h2>"
         for _, p in df[df['Categoria']==cat].iterrows():
+            # Usa .get para evitar erro se a chave faltar
+            img_src = p.get('Imagem', 'https://i.ibb.co/kV0jyTfK/logo.png')
             html += f"""
             <div class='card'>
-                <img src='{p['Imagem']}'>
+                <img src='{img_src}'>
                 <div><h3>{p['Nome']}</h3><p>{p['Descricao']}</p></div>
             </div>
             """
@@ -76,18 +74,19 @@ with st.expander("➕ Adicionar Novo Produto ao Catálogo"):
             "Nome": nome, "Categoria": cat, "Imagem": obter_imagem_como_base64(link_foto), 
             "Descricao": desc
         })
-        st.success("Produto adicionado ao catálogo!")
+        st.success("Produto adicionado!")
         st.rerun()
 
-# --- VISUALIZAÇÃO E EXPORTAÇÃO ---
+# --- VISUALIZAÇÃO ---
 st.write("---")
 if st.session_state.produtos_totais:
     st.subheader("Produtos no Catálogo Master")
     for i, p in enumerate(st.session_state.produtos_totais):
         c1, c2 = st.columns([1, 4])
-        c1.image(p['Imagem'], width=120)
-        c2.write(f"**{p['Nome']}** | *{p['Categoria']}*")
-        c2.caption(p['Descricao'])
+        # Correção com .get()
+        c1.image(p.get('Imagem', 'https://i.ibb.co/kV0jyTfK/logo.png'), width=120)
+        c2.write(f"**{p.get('Nome', 'Sem Nome')}** | *{p.get('Categoria', 'Sem Cat.')}*")
+        c2.caption(p.get('Descricao', ''))
         if c2.button("Excluir", key=f"del_{i}"):
             st.session_state.produtos_totais.pop(i)
             st.rerun()
