@@ -78,13 +78,17 @@ with tab2:
         depreciacao = st.number_input("Depreciação Máquina (R$)", 5.0)
         tempo_manual = st.number_input("Horas de Mão de Obra", 0.0)
         valor_hora = st.number_input("Valor da sua Hora (R$)", 30.0)
-        margem = st.selectbox("Margem de Lucro", [2.0, 2.5, 3.0], format_func=lambda x: f"{int((x-1)*100)}% de lucro")
+        margem_percentual = st.number_input("Margem de Lucro (%)", min_value=0.0, value=100.0)
 
+    # Cálculos
     custo_filamento = (peso_g / 1000) * preco_rolo
     custo_mao_obra = tempo_manual * valor_hora
     riscos = (custo_filamento + custo_mao_obra) * 0.15 
     custo_total = custo_filamento + custo_mao_obra + custo_energia + depreciacao + riscos
-    preco_venda = custo_total * margem
+    
+    # Aplicação da margem digitada pelo usuário
+    multiplicador = 1 + (margem_percentual / 100)
+    preco_venda = custo_total * multiplicador
     
     st.divider()
     st.metric("Custo Total de Produção", f"R$ {custo_total:.2f}")
