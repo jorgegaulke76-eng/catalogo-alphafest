@@ -3,9 +3,17 @@ import pandas as pd
 import requests
 import json
 import os
+from groq import Groq
 
 # --- CONFIGURAÇÕES ---
 st.set_page_config(page_title="Gestor Alphafest Master", layout="wide")
+# Certifique-se de que a chave da API está configurada nos segredos do Streamlit
+try:
+    groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+except:
+    st.error("Chave da API Groq não encontrada nos secrets.")
+    groq_client = None
+
 DB_FILE = "catalogo_db.json"
 
 # --- PERSISTÊNCIA ---
@@ -24,6 +32,14 @@ if "produtos_totais" not in st.session_state:
     st.session_state.produtos_totais = carregar_catalogo()
 if "preco_calc" not in st.session_state:
     st.session_state.preco_calc = 0.0
+
+# --- FUNÇÃO DE SEGURANÇA PARA IMAGENS ---
+def get_lista_imagens(p):
+    """Garante que sempre retorna uma lista de imagens válida."""
+    imgs = p.get('Imagens')
+    if isinstance(imgs, list):
+        return imgs
+    return [] # Se não for lista, retorna lista vazia para não quebrar o HTML
 
 # --- GERAÇÃO DO HTML ---
 def gerar_html_master(lista):
@@ -49,12 +65,14 @@ def gerar_html_master(lista):
     for cat in df['Categoria'].unique():
         html += f"<h2 id='{cat}'>📁 {cat}</h2>"
         for _, p in df[df['Categoria']==cat].iterrows():
-            imgs = p.get('Imagens', [])
+            # AQUI ESTÁ A CORREÇÃO: Usamos nossa função de segurança
+            imgs = get_lista_imagens(p)
             preco = p.get('Preco', 'Consulte')
+            
             html += f"<div class='card'><div class='galeria'>"
             for img in imgs:
                 html += f"<img src='{img}'>"
-            html += f"</div><div><h3>{p.get('Nome')}</h3><p>{p.get('Descricao')}</p><span class='preco'>R$ {preco}</span></div></div>"
+            html += f"</div><div><h3>{p.get('Nome', 'Produto')}</h3><p>{p.get('Descricao', '')}</p><span class='preco'>R$ {preco}</span></div></div>"
     return html + "</body></html>"
 
 # --- INTERFACE ---
@@ -75,8 +93,11 @@ with tab1:
         if st.button("Adicionar ao Master"):
             lista_imgs = [url.strip() for url in links_fotos.split('\n') if url.strip()]
             novo_item = {
-                "Nome": nome, "Categoria": cat, "Imagens": lista_imgs, 
-                "Descricao": f"Tema: {tema} | Material: {cor}", "Preco": preco_venda
+                "Nome": nome, 
+                "Categoria": cat, 
+                "Imagens": lista_imgs, 
+                "Descricao": f"Tema: {tema} | Material: {cor}", 
+                "Preco": preco_venda
             }
             st.session_state.produtos_totais.append(novo_item)
             salvar_catalogo(st.session_state.produtos_totais)
@@ -86,9 +107,10 @@ with tab1:
     st.write("---")
     for i, p in enumerate(st.session_state.produtos_totais):
         c1, c2 = st.columns([1, 4])
-        imgs = p.get('Imagens', [])
+        # Segurança também na visualização do painel
+        imgs = get_lista_imagens(p)
         if imgs: c1.image(imgs[0], width=100)
-        c2.write(f"**{p.get('Nome')}** - R$ {p.get('Preco')}")
+        c2.write(f"**{p.get('Nome', 'Sem nome')}** - R$ {p.get('Preco', '0')}")
         if c2.button("Excluir", key=f"del_{i}"):
             st.session_state.produtos_totais.pop(i)
             salvar_catalogo(st.session_state.produtos_totais)
