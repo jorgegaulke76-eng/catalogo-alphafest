@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import requests
 import json
 import os
 
@@ -30,30 +29,44 @@ def get_imgs(p):
     if p.get('Imagem'): return [p.get('Imagem')]
     return []
 
-# --- GERAÇÃO DO HTML (COM DESCRIÇÃO) ---
+# --- GERAÇÃO DO HTML (LAYOUT NOVO) ---
 def gerar_html_master(lista):
-    html = """<html><head><style>
-        body { font-family: Arial; padding: 20px; }
-        .card { display: flex; border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; align-items: center;} 
-        .galeria { display: flex; gap: 10px; margin-right: 20px; flex-wrap: wrap; }
-        .galeria img { width: 100px; height: 100px; object-fit: cover; }
-        .preco { font-weight: bold; color: #2e7d32; display: block; margin-top: 5px; }
-        .desc { color: #555; font-size: 0.9em; margin-top: 5px; }
-    </style></head><body><center><h1>CATÁLOGO MASTER - ALPHAFEST ITATIBA</h1></center>"""
+    html = """
+    <html><head><style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; padding: 20px; color: #333; }
+        .container { max-width: 900px; margin: auto; }
+        header { text-align: center; margin-bottom: 40px; }
+        header img { width: 180px; margin-bottom: 15px; }
+        header h1 { color: #2c3e50; margin: 0; font-size: 2.5em; }
+        .card { background: white; border-radius: 12px; display: flex; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .galeria { flex: 0 0 150px; }
+        .galeria img { width: 130px; height: 130px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; }
+        .info { flex: 1; padding-left: 20px; }
+        .info h3 { margin: 0 0 10px 0; color: #e67e22; font-size: 1.5em; }
+        .desc { color: #666; font-size: 1em; line-height: 1.5; margin-bottom: 10px; }
+        .preco { color: #27ae60; font-weight: bold; font-size: 1.3em; display: block; }
+    </style></head><body>
+    <div class="container">
+        <header>
+            <img src="https://i.ibb.co/kV0jyTfK/logo.png" alt="Logo">
+            <h1>Catálogo Alphafest</h1>
+        </header>
+    """
     
     for p in lista:
         imgs = get_imgs(p)
-        img_tag = f"<div class='galeria'>{''.join([f'<img src=\"{i}\">' for i in imgs])}</div>" if imgs else ""
+        img_html = f"<div class='galeria'><img src='{imgs[0]}'></div>" if imgs else ""
         html += f"""
         <div class='card'>
-            {img_tag}
-            <div>
+            {img_html}
+            <div class='info'>
                 <h3>{p.get('Nome', 'Sem nome')}</h3>
                 <div class='desc'>{p.get('Descricao', '')}</div>
                 <span class='preco'>R$ {p.get('Preco', '0')}</span>
             </div>
         </div>"""
-    return html + "</body></html>"
+    
+    return html + "</div></body></html>"
 
 # --- INTERFACE ---
 st.title("📦 Gestor de Catálogo Master")
