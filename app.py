@@ -44,7 +44,6 @@ with st.expander("➕ Adicionar Novo Produto ao Catálogo"):
     nome = col1.text_input("Nome do Produto")
     link_foto = col1.text_input("URL da Foto")
     
-    # Campos de especificações (para manter seu padrão)
     tema = col2.text_input("Tema/Ocasião")
     nome_pers = col2.text_input("Nome Personalizado")
     cor = col2.text_input("Cor/Material")
@@ -57,6 +56,7 @@ with st.expander("➕ Adicionar Novo Produto ao Catálogo"):
             "Descricao": desc, "Especificacoes": especs
         })
         st.success("Produto adicionado ao catálogo!")
+        st.rerun()
 
 # --- VISUALIZAÇÃO E EXPORTAÇÃO ---
 st.write("---")
@@ -68,7 +68,8 @@ if st.session_state.produtos_totais:
         c2.write(f"**{p['Nome']}** | *{p['Categoria']}*")
         c2.caption(p['Descricao'])
         if c2.button("Excluir", key=f"del_{i}"):
-            st.session_state.produtos_totais.pop(i); st.rerun()
+            st.session_state.produtos_totais.pop(i)
+            st.rerun()
             
     st.write("---")
     st.download_button("🖨️ BAIXAR CATÁLOGO MASTER (HTML)", gerar_html_master(st.session_state.produtos_totais), "catalogo_master.html", "text/html")
