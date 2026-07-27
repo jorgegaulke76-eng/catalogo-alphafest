@@ -29,22 +29,26 @@ def get_imgs(p):
     if p.get('Imagem'): return [p.get('Imagem')]
     return []
 
-# --- GERAÇÃO DO HTML (LAYOUT NOVO) ---
+# --- GERAÇÃO DO HTML (COM ZOOM) ---
 def gerar_html_master(lista):
     html = """
     <html><head><style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; padding: 20px; color: #333; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f4f4; padding: 20px; color: #333; }
         .container { max-width: 900px; margin: auto; }
         header { text-align: center; margin-bottom: 40px; }
         header img { width: 180px; margin-bottom: 15px; }
         header h1 { color: #2c3e50; margin: 0; font-size: 2.5em; }
         .card { background: white; border-radius: 12px; display: flex; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .galeria { flex: 0 0 150px; }
-        .galeria img { width: 130px; height: 130px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; }
+        .galeria { flex: 0 0 150px; cursor: pointer; }
+        .galeria img { width: 130px; height: 130px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; transition: transform 0.2s; }
+        .galeria img:hover { transform: scale(1.05); }
         .info { flex: 1; padding-left: 20px; }
         .info h3 { margin: 0 0 10px 0; color: #e67e22; font-size: 1.5em; }
         .desc { color: #666; font-size: 1em; line-height: 1.5; margin-bottom: 10px; }
         .preco { color: #27ae60; font-weight: bold; font-size: 1.3em; display: block; }
+        /* Modal para Zoom */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); }
+        .modal-content { margin: auto; display: block; max-width: 80%; max-height: 80%; margin-top: 50px; }
     </style></head><body>
     <div class="container">
         <header>
@@ -55,7 +59,7 @@ def gerar_html_master(lista):
     
     for p in lista:
         imgs = get_imgs(p)
-        img_html = f"<div class='galeria'><img src='{imgs[0]}'></div>" if imgs else ""
+        img_html = f"<div class='galeria' onclick=\"openModal('{imgs[0]}')\"><img src='{imgs[0]}'></div>" if imgs else ""
         html += f"""
         <div class='card'>
             {img_html}
@@ -66,7 +70,18 @@ def gerar_html_master(lista):
             </div>
         </div>"""
     
-    return html + "</div></body></html>"
+    html += """
+    <div id="myModal" class="modal" onclick="this.style.display='none'">
+        <img class="modal-content" id="img01">
+    </div>
+    <script>
+        function openModal(src) {
+            document.getElementById('myModal').style.display = 'block';
+            document.getElementById('img01').src = src;
+        }
+    </script>
+    </div></body></html>"""
+    return html
 
 # --- INTERFACE ---
 st.title("📦 Gestor de Catálogo Master")
@@ -106,4 +121,4 @@ for i, p in enumerate(st.session_state.produtos_totais):
         salvar_catalogo(st.session_state.produtos_totais)
         st.rerun()
 
-st.download_button("🖨️ BAIXAR HTML COMPLETO", gerar_html_master(st.session_state.produtos_totais), "catalogo.html", "text/html")
+st.download_button("🖨️ BAIXAR CATÁLOGO MASTER (HTML)", gerar_html_master(st.session_state.produtos_totais), "catalogo.html", "text/html")
