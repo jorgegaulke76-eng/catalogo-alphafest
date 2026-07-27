@@ -52,7 +52,7 @@ def gerar_html_catalogo(lista_produtos):
     
     html = f"""<!DOCTYPE html><html><head><style>
         body{{font-family: sans-serif; padding: 20px; background-color: #f9f9f9;}} 
-        .logo{{max-width: 250px; display: block; margin: 0 auto 20px auto;}}
+        .logo{{max-width: 250px; display: block; margin: 0 auto 60px auto;}}
         .capa{{background: white; padding: 20px; border-radius: 10px; margin-bottom: 30px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}}
         .categoria-section{{page-break-before: always; margin-top: 40px;}}
         .card{{display: flex; align-items: center; background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}} 
