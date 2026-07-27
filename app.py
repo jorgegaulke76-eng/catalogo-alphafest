@@ -70,14 +70,15 @@ with tab2:
     
     col_c1, col_c2 = st.columns(2)
     with col_c1:
-        peso_g = st.number_input("Peso da Peça (g)", 0.0)
-        preco_rolo = st.number_input("Preço do Rolo de Filamento (R$)", 100.0)
-        horas_imp = st.number_input("Horas de Impressão", 0.0)
-        custo_energia = st.number_input("Custo Energia (estimado R$)", 0.0)
+        peso_g = st.number_input("Peso da Peça (g)", min_value=0.0, value=0.0)
+        preco_rolo = st.number_input("Preço do Rolo de Filamento (R$)", min_value=0.0, value=100.0)
+        horas_imp = st.number_input("Horas de Impressão", min_value=0.0, value=0.0)
+        custo_energia = st.number_input("Custo Energia (estimado R$)", min_value=0.0, value=0.0)
     with col_c2:
-        depreciacao = st.number_input("Depreciação Máquina (R$)", 5.0)
-        tempo_manual = st.number_input("Horas de Mão de Obra", 0.0)
-        valor_hora = st.number_input("Valor da sua Hora (R$)", 30.0)
+        depreciacao = st.number_input("Depreciação Máquina (R$)", min_value=0.0, value=5.0)
+        tempo_manual = st.number_input("Horas de Mão de Obra", min_value=0.0, value=0.0)
+        # CORRIGIDO: Removi o valor mínimo fixo aqui para você digitar livremente
+        valor_hora = st.number_input("Valor da sua Hora (R$)", min_value=0.0, value=30.0)
         margem_percentual = st.number_input("Margem de Lucro (%)", min_value=0.0, value=100.0)
 
     # Cálculos
@@ -86,7 +87,7 @@ with tab2:
     riscos = (custo_filamento + custo_mao_obra) * 0.15 
     custo_total = custo_filamento + custo_mao_obra + custo_energia + depreciacao + riscos
     
-    # Aplicação da margem digitada pelo usuário
+    # Aplicação da margem
     multiplicador = 1 + (margem_percentual / 100)
     preco_venda = custo_total * multiplicador
     
