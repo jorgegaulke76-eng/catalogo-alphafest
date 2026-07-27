@@ -24,7 +24,17 @@ def salvar_catalogo(lista):
 if "produtos_totais" not in st.session_state: 
     st.session_state.produtos_totais = carregar_catalogo()
 
-# --- GERAÇÃO DO HTML (COM SEGURANÇA REFORÇADA) ---
+# --- FUNÇÃO DE RECUPERAÇÃO DE IMAGENS (SEGURA) ---
+def buscar_imagens_produto(p):
+    """Tenta pegar imagens do novo formato (lista) ou do antigo (string)"""
+    imgs = p.get('Imagens')
+    if imgs and isinstance(imgs, list):
+        return imgs
+    elif p.get('Imagem'):
+        return [p.get('Imagem')] # Converte a antiga string em lista
+    return []
+
+# --- GERAÇÃO DO HTML ---
 def gerar_html_master(lista):
     html = """
     <html><head><style>
@@ -50,11 +60,7 @@ def gerar_html_master(lista):
     for cat in df['Categoria'].unique():
         html += f"<h2 id='{cat}'>📁 {cat}</h2>"
         for _, p in df[df['Categoria']==cat].iterrows():
-            # SEGURANÇA: Garante que 'imagens' seja sempre uma lista, nunca nulo ou string
-            imagens = p.get('Imagens', [])
-            if not isinstance(imagens, list): 
-                imagens = []
-                
+            imagens = buscar_imagens_produto(p)
             html += f"<div class='card'><div class='galeria'>"
             for img in imagens:
                 html += f"<img src='{img}' onclick=\"openModal('{img}')\">"
@@ -103,13 +109,11 @@ with st.expander("➕ Adicionar Novo Produto"):
 st.write("---")
 for i, p in enumerate(st.session_state.produtos_totais):
     c1, c2 = st.columns([1, 4])
-    imgs = p.get('Imagens', [])
-    if isinstance(imgs, list) and len(imgs) > 0:
+    imgs = buscar_imagens_produto(p)
+    if imgs:
         c1.image(imgs[0], width=100)
-    else:
-        c1.write("Sem foto")
-        
-    c2.write(f"**{p.get('Nome')}** ({len(imgs) if isinstance(imgs, list) else 0} fotos)")
+    
+    c2.write(f"**{p.get('Nome')}** ({len(imgs)} fotos)")
     if c2.button("Excluir", key=f"del_{i}"):
         st.session_state.produtos_totais.pop(i)
         salvar_catalogo(st.session_state.produtos_totais)
