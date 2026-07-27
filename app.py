@@ -29,15 +29,30 @@ def get_imgs(p):
 # --- INTERFACE ---
 st.title("📦 Gestor Alphafest (Admin)")
 
-# 1. BOTÃO DE BACKUP (Para você não perder seus dados nunca mais)
+# 1. SEGURANÇA E BACKUP
 st.subheader("Segurança de Dados")
+col_bkp1, col_bkp2 = st.columns(2)
+
+# Botão de Download
 if st.session_state.produtos_totais:
-    btn = st.download_button(
-        label="💾 Baixar Backup da Base de Dados (JSON)",
+    col_bkp1.download_button(
+        label="💾 Baixar Backup da Base de Dados",
         data=json.dumps(st.session_state.produtos_totais, indent=4),
         file_name="catalogo_db_backup.json",
         mime="application/json"
     )
+
+# Botão de Upload
+uploaded_file = col_bkp2.file_uploader("Carregar Backup (JSON)", type=['json'])
+if uploaded_file is not None:
+    try:
+        data = json.load(uploaded_file)
+        st.session_state.produtos_totais = data
+        salvar_catalogo(data)
+        st.success("Dados restaurados com sucesso!")
+        st.rerun()
+    except:
+        st.error("Erro ao ler o arquivo de backup.")
 
 # 2. GESTOR DE PRODUTOS
 st.write("---")
@@ -62,7 +77,7 @@ with st.expander("➕ Adicionar/Editar Produto", expanded=True):
         st.success("Produto salvo!")
         st.rerun()
 
-# 3. LISTAGEM SIMPLES
+# 3. LISTAGEM E EXCLUSÃO
 st.write("---")
 for i, p in enumerate(st.session_state.produtos_totais):
     cols = st.columns([1, 4, 1])
