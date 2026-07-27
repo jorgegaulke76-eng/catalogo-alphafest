@@ -2,13 +2,30 @@ import streamlit as st
 import pandas as pd
 import requests
 import base64
+import json
+import os
 from groq import Groq
 
 # --- CONFIGURAÇÕES ---
 st.set_page_config(page_title="Gestor Alphafest Master", layout="wide")
 groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+DB_FILE = "catalogo_db.json"
 
-if "produtos_totais" not in st.session_state: st.session_state.produtos_totais = []
+# --- PERSISTÊNCIA (LER E SALVAR) ---
+def carregar_catalogo():
+    if os.path.exists(DB_FILE):
+        with open(DB_FILE, "r", encoding="utf-8") as f:
+            try: return json.load(f)
+            except: return []
+    return []
+
+def salvar_catalogo(lista):
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(lista, f, indent=4)
+
+# Inicializa o estado com o que está salvo no arquivo
+if "produtos_totais" not in st.session_state: 
+    st.session_state.produtos_totais = carregar_catalogo()
 
 def obter_imagem_como_base64(url):
     try:
@@ -26,7 +43,6 @@ def gerar_anuncio_ia(nome, especs):
     except: return f"{nome} - {especs}"
 
 def gerar_html_master(lista):
-    # CSS e JS para o efeito de zoom na imagem
     html = """
     <html><head><style>
         body { font-family: Arial; padding: 20px; }
@@ -34,12 +50,13 @@ def gerar_html_master(lista):
         .card img { width: 150px; margin-right: 20px; cursor: pointer; transition: 0.3s; }
         .card img:hover { opacity: 0.7; }
         .menu { background: #f9f9f9; padding: 15px; border: 1px solid #ddd; margin-bottom: 20px; }
-        /* Modal do Zoom */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); }
         .modal-content { margin: auto; display: block; max-width: 80%; max-height: 80%; margin-top: 50px; }
     </style></head><body>
     <center><h1>CATÁLOGO MASTER - ALPHAFEST ITATIBA</h1></center>
     """
+    if not lista: return html + "</body></html>"
+    
     df = pd.DataFrame(lista)
     html += "<div class='menu'><h3>Selecione a Categoria:</h3><ul>"
     for cat in df['Categoria'].unique():
@@ -53,11 +70,10 @@ def gerar_html_master(lista):
             html += f"""
             <div class='card'>
                 <img src='{img_src}' onclick="openModal('{img_src}')">
-                <div><h3>{p['Nome']}</h3><p>{p['Descricao']}</p></div>
+                <div><h3>{p.get('Nome', 'Produto')}</h3><p>{p.get('Descricao', '')}</p></div>
             </div>
             """
     
-    # Scripts para abrir e fechar a imagem
     html += """
     <div id="myModal" class="modal" onclick="this.style.display='none'">
         <img class="modal-content" id="img01">
@@ -88,11 +104,15 @@ with st.expander("➕ Adicionar Novo Produto ao Catálogo"):
     if st.button("Adicionar ao Master"):
         especs = f"Tema: {tema}, Nome: {nome_pers}, Cor: {cor}"
         desc = gerar_anuncio_ia(nome, especs)
-        st.session_state.produtos_totais.append({
-            "Nome": nome, "Categoria": cat, "Imagem": obter_imagem_como_base64(link_foto), 
+        novo_item = {
+            "Nome": nome, 
+            "Categoria": cat, 
+            "Imagem": obter_imagem_como_base64(link_foto), 
             "Descricao": desc
-        })
-        st.success("Produto adicionado!")
+        }
+        st.session_state.produtos_totais.append(novo_item)
+        salvar_catalogo(st.session_state.produtos_totais) # Salva no arquivo!
+        st.success("Produto adicionado com sucesso!")
         st.rerun()
 
 # --- VISUALIZAÇÃO ---
@@ -106,6 +126,7 @@ if st.session_state.produtos_totais:
         c2.caption(p.get('Descricao', ''))
         if c2.button("Excluir", key=f"del_{i}"):
             st.session_state.produtos_totais.pop(i)
+            salvar_catalogo(st.session_state.produtos_totais) # Salva a exclusão!
             st.rerun()
             
     st.write("---")
