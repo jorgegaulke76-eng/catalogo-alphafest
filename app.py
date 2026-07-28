@@ -37,25 +37,21 @@ def get_image_base64(path):
 def otimizar_descricao_ia(nome, desc_raw):
     return f"Produto exclusivo Alphafest: {nome}. {desc_raw.strip()} | Acabamento impecável, produzido com máquinas de última geração para garantir a perfeição em cada peça."
 
-# --- GERADOR DE HTML (LAYOUT PROFISSIONAL COM WHATSAPP) ---
+# --- GERADOR DE HTML (LAYOUT PROFISSIONAL) ---
 def gerar_html_master(lista, logo_path):
     df = pd.DataFrame(lista)
     categorias = df['Categoria'].unique() if not df.empty else []
     final_logo_src = get_image_base64(logo_path) if os.path.exists(logo_path) else ""
     
-    # CSS focado em legibilidade e menu lateral profissional
+    # CSS com o novo botão de WhatsApp
     css = """
     <style>
         body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; display: flex; background: #f9f9f9; color: #333; }
-        
-        /* Menu Lateral (Sidebar) */
         #sidebar { width: 280px; background: #2c3e50; padding: 30px 20px; height: 100vh; position: sticky; top: 0; color: white; box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
         .logo { width: 100%; margin-bottom: 40px; border-radius: 8px; }
         #sidebar h3 { color: #bdc3c7; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px; }
         .nav-link { display: block; padding: 15px 10px; color: #ecf0f1; text-decoration: none; font-weight: 500; font-size: 1.1em; border-bottom: 1px solid #34495e; transition: 0.3s; }
         .nav-link:hover { background: #34495e; color: #fff; padding-left: 20px; }
-        
-        /* Conteúdo Principal */
         #main { flex-grow: 1; padding: 40px; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 30px; }
         .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: 0.3s; display: flex; flex-direction: column; }
@@ -64,15 +60,10 @@ def gerar_html_master(lista, logo_path):
         .card-body { padding: 20px; flex-grow: 1; }
         .card h3 { margin: 0 0 10px 0; font-size: 1.4em; }
         .price { color: #27ae60; font-weight: bold; font-size: 1.4em; display: block; margin-bottom: 15px; }
-        
-        /* Botão WhatsApp */
         .btn-wpp { display: block; background: #25d366; color: white; text-align: center; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; transition: 0.3s; }
         .btn-wpp:hover { background: #128c7e; }
-        
-        /* Modal Zoom */
         #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; }
         #modal img { max-width: 85%; max-height: 85%; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        
         @media (max-width: 768px) {
             body { flex-direction: column; }
             #sidebar { width: 100%; height: auto; position: relative; padding: 20px; box-shadow: none; }
@@ -95,7 +86,7 @@ def gerar_html_master(lista, logo_path):
                 img_path = imgs[0] if imgs else ""
                 src = img_path if img_path.startswith("http") else (get_image_base64(img_path) if (img_path and os.path.exists(img_path)) else "")
                 
-                # Link WhatsApp com nome e produto
+                # Link WhatsApp
                 nome_prod = p.get('Nome')
                 msg = f"Olá, Anna Lúcia! Fiquei interessada neste produto: {nome_prod}"
                 wpp_link = f"https://wa.me/5511972949533?text={msg.replace(' ', '%20')}"
@@ -105,7 +96,7 @@ def gerar_html_master(lista, logo_path):
                             <h3>{nome_prod}</h3>
                             <p>{p.get('Descricao')}</p>
                             <span class='price'>R$ {p.get('Preco')}</span>
-                            <a href='{wpp_link}' target='_blank' class='btn-wpp'>WhatsApp da Anna Lúcia</a>
+                            <a href='{wpp_link}' target='_blank' class='btn-wpp'>WhatsApp</a>
                         </div></div>"""
             html += "</div>"
     
@@ -193,11 +184,15 @@ for i, p in enumerate(st.session_state.produtos_totais):
         c_row1, c_row2, c_row3 = st.columns([1, 5, 2])
         imgs = p.get('Imagens', [])
         
+        # Proteção de carregamento flexível
         if imgs and len(imgs) > 0:
             caminho = imgs[0]
-            try: c_row1.image(caminho, width=80)
-            except: c_row1.write("📷")
-        else: c_row1.write("📷")
+            try:
+                c_row1.image(caminho, width=80)
+            except:
+                c_row1.write("📷")
+        else:
+            c_row1.write("📷")
         
         c_row2.write(f"### {p.get('Nome')}")
         c_row2.write(f"**Preço:** R$ {p.get('Preco')} | **Cat:** {p.get('Categoria')}")
