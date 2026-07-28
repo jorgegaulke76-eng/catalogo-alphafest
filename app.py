@@ -37,7 +37,7 @@ def get_image_base64(path):
 def otimizar_descricao_ia(nome, desc_raw):
     return f"Produto exclusivo Alphafest: {nome}. {desc_raw.strip()} | Acabamento impecável, produzido com máquinas de última geração para garantir a perfeição em cada peça."
 
-# --- GERADOR DE HTML (LAYOUT PROFISSIONAL E RESPONSIVO) ---
+# --- GERADOR DE HTML (LAYOUT PROFISSIONAL COM WHATSAPP) ---
 def gerar_html_master(lista, logo_path):
     df = pd.DataFrame(lista)
     categorias = df['Categoria'].unique() if not df.empty else []
@@ -58,18 +58,21 @@ def gerar_html_master(lista, logo_path):
         /* Conteúdo Principal */
         #main { flex-grow: 1; padding: 40px; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 30px; }
-        .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); cursor: pointer; transition: 0.3s; }
+        .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: 0.3s; display: flex; flex-direction: column; }
         .card:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
-        .card img { width: 100%; height: 220px; object-fit: cover; }
-        .card-body { padding: 20px; }
+        .card img { width: 100%; height: 220px; object-fit: cover; cursor: pointer; }
+        .card-body { padding: 20px; flex-grow: 1; }
         .card h3 { margin: 0 0 10px 0; font-size: 1.4em; }
-        .price { color: #27ae60; font-weight: bold; font-size: 1.4em; }
+        .price { color: #27ae60; font-weight: bold; font-size: 1.4em; display: block; margin-bottom: 15px; }
+        
+        /* Botão WhatsApp */
+        .btn-wpp { display: block; background: #25d366; color: white; text-align: center; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; transition: 0.3s; }
+        .btn-wpp:hover { background: #128c7e; }
         
         /* Modal Zoom */
         #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; }
         #modal img { max-width: 85%; max-height: 85%; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
         
-        /* Responsividade Celular */
         @media (max-width: 768px) {
             body { flex-direction: column; }
             #sidebar { width: 100%; height: auto; position: relative; padding: 20px; box-shadow: none; }
@@ -92,9 +95,18 @@ def gerar_html_master(lista, logo_path):
                 img_path = imgs[0] if imgs else ""
                 src = img_path if img_path.startswith("http") else (get_image_base64(img_path) if (img_path and os.path.exists(img_path)) else "")
                 
+                # Link WhatsApp com nome e produto
+                nome_prod = p.get('Nome')
+                msg = f"Olá, Anna Lúcia! Fiquei interessada neste produto: {nome_prod}"
+                wpp_link = f"https://wa.me/5511972949533?text={msg.replace(' ', '%20')}"
+                
                 img_tag = f"<img src='{src}' onclick='openModal(\"{src}\")'>" if src else "<div style='height:220px; background:#eee; display:flex; align-items:center; justify-content:center;'>Sem imagem</div>"
                 html += f"""<div class='card'>{img_tag}<div class='card-body'>
-                            <h3>{p.get('Nome')}</h3><p>{p.get('Descricao')}</p><span class='price'>R$ {p.get('Preco')}</span></div></div>"""
+                            <h3>{nome_prod}</h3>
+                            <p>{p.get('Descricao')}</p>
+                            <span class='price'>R$ {p.get('Preco')}</span>
+                            <a href='{wpp_link}' target='_blank' class='btn-wpp'>WhatsApp da Anna Lúcia</a>
+                        </div></div>"""
             html += "</div>"
     
     html += "</div><div id='modal' onclick='this.style.display=\"none\"'><img id='modal-img'></div>"
@@ -181,15 +193,11 @@ for i, p in enumerate(st.session_state.produtos_totais):
         c_row1, c_row2, c_row3 = st.columns([1, 5, 2])
         imgs = p.get('Imagens', [])
         
-        # Proteção de carregamento flexível
         if imgs and len(imgs) > 0:
             caminho = imgs[0]
-            try:
-                c_row1.image(caminho, width=80)
-            except:
-                c_row1.write("📷")
-        else:
-            c_row1.write("📷")
+            try: c_row1.image(caminho, width=80)
+            except: c_row1.write("📷")
+        else: c_row1.write("📷")
         
         c_row2.write(f"### {p.get('Nome')}")
         c_row2.write(f"**Preço:** R$ {p.get('Preco')} | **Cat:** {p.get('Categoria')}")
