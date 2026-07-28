@@ -60,11 +60,9 @@ def gerar_html_master(lista, logo_path):
     </style></head><body>
     <div class='header'><img src="{final_logo_src}" class='logo'><h1>Catálogo Alphafest</h1></div>
     <nav>"""
-    # Índice
     for cat in categorias: html += f'<a href="#{cat.replace(" ", "_")}">{cat}</a>'
     html += "</nav><div class='container'>"
     
-    # Produtos por Categoria
     if not df.empty:
         for cat in categorias:
             html += f"<h2 id='{cat.replace(' ', '_')}'>{cat}</h2><div class='grid'>"
@@ -79,7 +77,7 @@ def gerar_html_master(lista, logo_path):
 # --- INTERFACE CENTRALIZADA ---
 c_left, c_main, c_right = st.columns([1, 6, 1])
 with c_main:
-    # Logo
+    # Logo Centralizada
     col_a, col_b, col_c = st.columns([1, 2, 1])
     if os.path.exists(LOGO_FILE): col_b.image(LOGO_FILE, use_container_width=True)
     
@@ -134,7 +132,8 @@ with c_main:
                 st.rerun()
 
     st.divider()
-    # 3. Listagem
+    
+    # 3. Listagem CORRIGIDA
     col_gen1, col_gen2 = st.columns([4, 1])
     col_gen1.subheader("📦 Produtos Cadastrados")
     col_gen2.download_button("🖨️ Gerar HTML", gerar_html_master(st.session_state.produtos_totais, LOGO_FILE), "index.html", "text/html")
@@ -143,8 +142,13 @@ with c_main:
         with st.container(border=True):
             c_row1, c_row2, c_row3 = st.columns([1, 5, 2])
             imgs = p.get('Imagens', [])
-            if imgs and imgs[0] and os.path.exists(imgs[0]): c_row1.image(imgs[0], width=80)
+            
+            # CORREÇÃO: Exibe se for arquivo local OR link web
+            if imgs and imgs[0]:
+                c_row1.image(imgs[0], width=80) 
+            
             c_row2.write(f"### {p.get('Nome')}")
             c_row2.write(f"**Preço:** R$ {p.get('Preco')} | **Cat:** {p.get('Categoria')}")
+            
             if c_row3.button("✏️ Editar", key=f"e{i}"): st.session_state.edit_index = i; st.rerun()
             if c_row3.button("🗑️ Excluir", key=f"d{i}"): st.session_state.produtos_totais.pop(i); salvar_catalogo(st.session_state.produtos_totais); st.rerun()
