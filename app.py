@@ -37,7 +37,7 @@ def get_image_base64(path):
 def otimizar_descricao_ia(nome, desc_raw):
     return f"Produto exclusivo Alphafest: {nome}. {desc_raw.strip()} | Acabamento impecável, produzido com máquinas de última geração para garantir a perfeição em cada peça."
 
-# --- GERADOR DE HTML (LAYOUT PROFISSIONAL RESPONSIVO) ---
+# --- GERADOR DE HTML (LAYOUT PROFISSIONAL E RESPONSIVO) ---
 def gerar_html_master(lista, logo_path):
     df = pd.DataFrame(lista)
     categorias = df['Categoria'].unique() if not df.empty else []
@@ -45,25 +45,22 @@ def gerar_html_master(lista, logo_path):
     
     css = """
     <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; background: #f4f7f6; }
-        #sidebar { width: 250px; background: #fff; padding: 25px; height: 100vh; position: sticky; top: 0; border-right: 1px solid #ddd; }
-        #main { flex-grow: 1; padding: 40px; }
-        .logo { width: 100%; margin-bottom: 30px; }
-        .nav-link { display: block; padding: 10px; color: #333; text-decoration: none; font-weight: 600; border-bottom: 1px solid #eee; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; background: #f4f7f6; color: #333; }
+        #sidebar { width: 100%; background: #fff; padding: 20px; box-sizing: border-box; border-bottom: 2px solid #ddd; text-align: center; }
+        #main { padding: 20px; }
+        .logo { width: 150px; margin-bottom: 10px; }
+        .nav-link { display: inline-block; padding: 10px; color: #333; text-decoration: none; font-weight: 600; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
-        .card { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s; }
+        .card { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; cursor: pointer; transition: 0.3s; }
         .card:hover { transform: scale(1.02); }
         .card img { width: 100%; height: 200px; object-fit: cover; }
         .card-body { padding: 15px; }
         #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
         #modal img { max-width: 90%; max-height: 90%; border-radius: 5px; }
-        
-        /* Ajuste para Celular */
-        @media (max-width: 768px) {
-            body { flex-direction: column; }
-            #sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid #ddd; padding: 15px; }
-            #main { padding: 15px; }
-            .grid { grid-template-columns: 1fr; }
+        @media (min-width: 768px) {
+            body { display: flex; }
+            #sidebar { width: 250px; height: 100vh; position: sticky; top: 0; border-right: 1px solid #ddd; border-bottom: none; text-align: left; }
+            .nav-link { display: block; border-bottom: 1px solid #eee; }
         }
     </style>
     """
@@ -80,10 +77,7 @@ def gerar_html_master(lista, logo_path):
             for _, p in df[df['Categoria'] == cat].iterrows():
                 imgs = p.get('Imagens', [])
                 img_path = imgs[0] if imgs else ""
-                if img_path.startswith("http"):
-                    src = img_path
-                else:
-                    src = get_image_base64(img_path) if (img_path and os.path.exists(img_path)) else ""
+                src = img_path if img_path.startswith("http") else (get_image_base64(img_path) if (img_path and os.path.exists(img_path)) else "")
                 
                 img_tag = f"<img src='{src}' onclick='openModal(\"{src}\")'>" if src else "<div style='height:200px; background:#eee;'></div>"
                 html += f"""<div class='card'>{img_tag}<div class='card-body'>
@@ -165,7 +159,6 @@ else:
 
 st.divider()
 
-# Listagem Protegida
 col_gen1, col_gen2 = st.columns([4, 1])
 col_gen1.subheader("📦 Produtos Cadastrados")
 col_gen2.download_button("🖨️ Gerar HTML", gerar_html_master(st.session_state.produtos_totais, LOGO_FILE), "index.html", "text/html")
@@ -174,20 +167,13 @@ for i, p in enumerate(st.session_state.produtos_totais):
     with st.container(border=True):
         c_row1, c_row2, c_row3 = st.columns([1, 5, 2])
         imgs = p.get('Imagens', [])
-        
-        # Proteção de carregamento flexível
         if imgs and len(imgs) > 0:
             caminho = imgs[0]
-            try:
-                c_row1.image(caminho, width=80)
-            except:
-                c_row1.write("📷")
-        else:
-            c_row1.write("📷")
-        
+            try: c_row1.image(caminho, width=80)
+            except: c_row1.write("📷")
+        else: c_row1.write("📷")
         c_row2.write(f"### {p.get('Nome')}")
         c_row2.write(f"**Preço:** R$ {p.get('Preco')} | **Cat:** {p.get('Categoria')}")
-        
         if c_row3.button("✏️ Editar", key=f"e{i}"): st.session_state.edit_index = i; st.rerun()
         if c_row3.button("🗑️ Excluir", key=f"d{i}"): 
             st.session_state.produtos_totais.pop(i)
