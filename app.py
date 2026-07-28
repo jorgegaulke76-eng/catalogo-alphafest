@@ -36,6 +36,7 @@ if "produtos_totais" not in st.session_state: st.session_state.produtos_totais =
 if "edit_index" not in st.session_state: st.session_state.edit_index = None
 
 # --- GERADOR DE HTML ---
+# (Mantive a sua função de gerar o HTML exatamente como estava funcionando antes)
 def gerar_html_master(lista, logo_input):
     df = pd.DataFrame(lista)
     categorias = df['Categoria'].unique() if not df.empty else []
@@ -83,7 +84,6 @@ def gerar_html_master(lista, logo_input):
 # --- INTERFACE ADMIN ---
 st.title("📦 Gestor Alphafest (Admin)")
 
-# Logica de Edição ou Adição
 if st.session_state.edit_index is not None:
     idx = st.session_state.edit_index
     item = st.session_state.produtos_totais[idx]
@@ -102,7 +102,6 @@ if st.session_state.edit_index is not None:
         st.session_state.edit_index = None
         st.rerun()
 else:
-    # (O formulário de adicionar novo produto permanece aqui...)
     with st.expander("➕ Adicionar Produto"):
         c1, c2 = st.columns(2)
         cat = c1.text_input("Categoria")
@@ -116,10 +115,22 @@ else:
             st.rerun()
 
 st.write("---")
-# Listagem com botões Editar e Excluir
+# --- LISTAGEM COM AS FOTOS ---
 for i, p in enumerate(st.session_state.produtos_totais):
-    cols = st.columns([1, 4, 1, 1])
+    # A estrutura abaixo coloca a imagem na primeira coluna, texto na segunda, botões nas últimas
+    cols = st.columns([0.5, 3, 1, 1])
+    
+    imgs = p.get('Imagens', [])
+    if imgs and imgs[0]:
+        if os.path.exists(imgs[0]):
+            cols[0].image(imgs[0], width=60)
+        else:
+            cols[0].image(imgs[0], width=60) # Tenta exibir links externos
+    else:
+        cols[0].write("Sem foto")
+
     cols[1].write(f"**{p.get('Nome')}** - R$ {p.get('Preco')}")
+    
     if cols[2].button("✏️ Editar", key=f"e{i}"):
         st.session_state.edit_index = i
         st.rerun()
