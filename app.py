@@ -25,7 +25,6 @@ def salvar_catalogo(lista):
         json.dump(lista, f, indent=4)
 
 def get_image_base64(path):
-    """Converte imagem local para formato base64 para embutir no HTML"""
     if not path or not os.path.exists(path): return ""
     with open(path, "rb") as image_file:
         encoded = base64.b64encode(image_file.read()).decode('utf-8')
@@ -44,8 +43,11 @@ def gerar_html_master(lista, logo_input):
     df = pd.DataFrame(lista)
     categorias = df['Categoria'].unique() if not df.empty else []
     
-    # Processa Logo
-    final_logo_src = logo_input # Usa o link direto do GitHub
+    # Processa Logo (se for arquivo local, converte para Base64)
+    if logo_input.lower().startswith("http"):
+        final_logo_src = logo_input
+    else:
+        final_logo_src = get_image_base64(logo_input)
     
     html = f"""<html><head><meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -73,7 +75,6 @@ def gerar_html_master(lista, logo_input):
             html += f"<h2 id='{cat.replace(' ', '_')}'>{cat}</h2><div class='grid'>"
             for _, p in df[df['Categoria'] == cat].iterrows():
                 imgs = p.get('Imagens', [])
-                # Se for local, converte p/ base64, se for link, mantém
                 img_src = get_image_base64(imgs[0]) if (imgs and os.path.exists(imgs[0])) else (imgs[0] if imgs else "")
                 
                 html += f"""
@@ -95,7 +96,7 @@ def gerar_html_master(lista, logo_input):
 st.title("📦 Gestor Alphafest (Admin)")
 
 # Configurações de Logo
-logo_path = st.text_input("Link da Logo no GitHub (Raw URL)", value="https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPOSITORIO/main/logo.png")
+logo_path = st.text_input("Caminho do arquivo ou link da Logo", value="logo.png")
 
 with st.expander("💾 Backup e Segurança"):
     col_bkp1, col_bkp2 = st.columns(2)
