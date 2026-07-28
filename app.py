@@ -8,6 +8,7 @@ import base64
 st.set_page_config(page_title="Gestor Alphafest Master", layout="wide")
 DB_FILE = "catalogo_db.json"
 UPLOAD_DIR = "uploads"
+LOGO_FILE = "logo.png" # Definimos o nome padrão da logo
 
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
@@ -40,10 +41,12 @@ if "edit_index" not in st.session_state: st.session_state.edit_index = None
 if "temp_desc" not in st.session_state: st.session_state.temp_desc = ""
 
 # --- GERADOR DE HTML ---
-def gerar_html_master(lista, logo_input):
+def gerar_html_master(lista, logo_path):
     df = pd.DataFrame(lista)
     categorias = df['Categoria'].unique() if not df.empty else []
-    final_logo_src = logo_input if logo_input.lower().startswith("http") else get_image_base64(logo_input)
+    
+    # Se o arquivo existir, usa base64. Se for URL, usa direto.
+    final_logo_src = get_image_base64(logo_path) if os.path.exists(logo_path) else logo_path
     
     html = f"""<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
@@ -72,8 +75,11 @@ def gerar_html_master(lista, logo_input):
     return html
 
 # --- INTERFACE ADMIN ---
-st.title("📦 Gestor Alphafest (Admin)")
-logo_path = st.text_input("Link ou caminho da Logo", value="logo.png")
+# Exibindo o Logo no Painel
+if os.path.exists(LOGO_FILE):
+    st.image(LOGO_FILE, width=200)
+else:
+    st.title("📦 Gestor Alphafest (Admin)")
 
 # 1. Backup e Segurança
 with st.expander("💾 Backup e Segurança"):
@@ -124,7 +130,7 @@ else:
 
 # 3. Listagem e Gerador
 st.write("---")
-st.download_button("🖨️ GERAR index.html ATUALIZADO", gerar_html_master(st.session_state.produtos_totais, logo_path), "index.html", "text/html")
+st.download_button("🖨️ GERAR index.html ATUALIZADO", gerar_html_master(st.session_state.produtos_totais, LOGO_FILE), "index.html", "text/html")
 for i, p in enumerate(st.session_state.produtos_totais):
     cols = st.columns([0.5, 3, 1, 1])
     imgs = p.get('Imagens', [])
