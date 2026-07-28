@@ -123,14 +123,20 @@ for i, p in enumerate(st.session_state.produtos_totais):
         c_row1, c_row2, c_row3 = st.columns([1, 5, 2])
         imgs = p.get('Imagens', [])
         
-        # Proteção de carregamento
-        try:
-            if imgs and len(imgs) > 0 and os.path.exists(imgs[0]):
-                c_row1.image(imgs[0], width=80)
-            else:
-                c_row1.write("📷")
-        except:
-            c_row1.write("⚠️")
+        # --- LÓGICA DE EXIBIÇÃO CORRIGIDA PARA LINKS E ARQUIVOS ---
+        if imgs and len(imgs) > 0:
+            caminho = imgs[0]
+            try:
+                if caminho.startswith("http"): # É um link da web
+                    c_row1.image(caminho, width=80)
+                elif os.path.exists(caminho): # É um arquivo local
+                    c_row1.image(caminho, width=80)
+                else:
+                    c_row1.write("📷")
+            except:
+                c_row1.write("⚠️")
+        else:
+            c_row1.write("📷")
         
         c_row2.write(f"### {p.get('Nome')}")
         c_row2.write(f"**Preço:** R$ {p.get('Preco')} | **Cat:** {p.get('Categoria')}")
