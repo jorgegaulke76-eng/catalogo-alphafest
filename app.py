@@ -37,7 +37,7 @@ def get_image_base64(path):
 def otimizar_descricao_ia(nome, desc_raw):
     return f"Produto exclusivo Alphafest: {nome}. {desc_raw.strip()} | Acabamento impecável, produzido com máquinas de última geração para garantir a perfeição em cada peça."
 
-# --- GERADOR DE HTML (LAYOUT PROFISSIONAL COM ZOOM) ---
+# --- GERADOR DE HTML (LAYOUT PROFISSIONAL RESPONSIVO) ---
 def gerar_html_master(lista, logo_path):
     df = pd.DataFrame(lista)
     categorias = df['Categoria'].unique() if not df.empty else []
@@ -55,13 +55,20 @@ def gerar_html_master(lista, logo_path):
         .card:hover { transform: scale(1.02); }
         .card img { width: 100%; height: 200px; object-fit: cover; }
         .card-body { padding: 15px; }
-        /* Modal para Zoom */
         #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
         #modal img { max-width: 90%; max-height: 90%; border-radius: 5px; }
+        
+        /* Ajuste para Celular */
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            #sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid #ddd; padding: 15px; }
+            #main { padding: 15px; }
+            .grid { grid-template-columns: 1fr; }
+        }
     </style>
     """
     
-    html = f"<html><head><meta charset='UTF-8'>{css}</head><body>"
+    html = f"<html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>{css}</head><body>"
     html += f"<div id='sidebar'><img src='{final_logo_src}' class='logo'><h3>Categorias</h3>"
     for cat in categorias:
         html += f"<a href='#{cat.replace(' ', '_')}' class='nav-link'>{cat}</a>"
@@ -73,7 +80,6 @@ def gerar_html_master(lista, logo_path):
             for _, p in df[df['Categoria'] == cat].iterrows():
                 imgs = p.get('Imagens', [])
                 img_path = imgs[0] if imgs else ""
-                # Lógica: Links http diretos vs Arquivos locais (Base64)
                 if img_path.startswith("http"):
                     src = img_path
                 else:
@@ -159,7 +165,7 @@ else:
 
 st.divider()
 
-# Listagem com Botão de Gerar HTML
+# Listagem Protegida
 col_gen1, col_gen2 = st.columns([4, 1])
 col_gen1.subheader("📦 Produtos Cadastrados")
 col_gen2.download_button("🖨️ Gerar HTML", gerar_html_master(st.session_state.produtos_totais, LOGO_FILE), "index.html", "text/html")
