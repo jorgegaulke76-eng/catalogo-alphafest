@@ -34,80 +34,120 @@ def get_image_base64(path):
             return f"data:image/{ext};base64,{encoded}"
     except: return ""
 
-# --- GERADOR DE HTML PROFISSIONAL ---
+def otimizar_descricao_ia(nome, desc_raw):
+    return f"Produto exclusivo Alphafest: {nome}. {desc_raw.strip()} | Acabamento impecável, produzido com máquinas de última geração para garantir a perfeição em cada peça."
+
+# --- GERADOR DE HTML ---
 def gerar_html_master(lista, logo_path):
     df = pd.DataFrame(lista)
     categorias = df['Categoria'].unique() if not df.empty else []
-    logo_src = get_image_base64(logo_path)
+    final_logo_src = get_image_base64(logo_path) if os.path.exists(logo_path) else ""
     
-    # CSS Profissional
-    css = """
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; color: #333; }
-        #sidebar { width: 280px; background: #f8f9fa; padding: 20px; height: 100vh; position: sticky; top: 0; border-right: 1px solid #ddd; }
-        #main { flex-grow: 1; padding: 40px; background: #fff; }
-        .logo { width: 100%; margin-bottom: 30px; }
-        .nav-link { display: block; padding: 10px; color: #555; text-decoration: none; font-weight: 600; border-radius: 5px; margin-bottom: 5px; }
-        .nav-link:hover { background: #e9ecef; color: #000; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 25px; margin-top: 20px; }
-        .card { border: 1px solid #eee; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: transform 0.2s; }
-        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
-        .card img { width: 100%; height: 200px; object-fit: cover; }
-        .card-body { padding: 15px; }
-        .price { color: #2ecc71; font-weight: bold; font-size: 1.2em; }
-    </style>
-    """
-    
-    html = f"<html><head><meta charset='UTF-8'>{css}</head><body>"
-    html += f"<div id='sidebar'><img src='{logo_src}' class='logo'><h3>Categorias</h3>"
-    for cat in categorias:
-        html += f"<a href='#{cat.replace(' ', '_')}' class='nav-link'>{cat}</a>"
-    html += "</div><div id='main'><h1>Catálogo Alphafest</h1>"
-    
+    html = f"<html><body><div class='header'><img src='{final_logo_src}' style='max-width:200px'><h1>Catálogo Alphafest</h1></div>"
     if not df.empty:
         for cat in categorias:
-            html += f"<h2 id='{cat.replace(' ', '_')}'>{cat}</h2><div class='grid'>"
+            html += f"<h2>{cat}</h2>"
             for _, p in df[df['Categoria'] == cat].iterrows():
-                # Tenta pegar a imagem, se não houver, deixa vazio
-                imgs = p.get('Imagens', [])
-                img_tag = f"<img src='{get_image_base64(imgs[0])}'>" if (imgs and os.path.exists(imgs[0])) else "<div style='height:200px; background:#eee;'></div>"
-                html += f"""<div class='card'>{img_tag}<div class='card-body'>
-                            <h3>{p.get('Nome')}</h3><p>{p.get('Descricao')}</p>
-                            <p class='price'>R$ {p.get('Preco')}</p></div></div>"""
-            html += "</div>"
-    html += "</div></body></html>"
+                html += f"<div><h3>{p.get('Nome')}</h3><p>{p.get('Descricao')}</p><span>R$ {p.get('Preco')}</span></div>"
+    html += "</body></html>"
     return html
+
+# Inicialização
+if "produtos_totais" not in st.session_state: st.session_state.produtos_totais = carregar_catalogo()
+if "edit_index" not in st.session_state: st.session_state.edit_index = None
+if "temp_desc" not in st.session_state: st.session_state.temp_desc = ""
 
 # --- INTERFACE ---
 st.title("Gestor Alphafest Master")
 
+# Backup
+with st.expander("💾 Backup e Segurança"):
+    col_b1, col_b2 = st.columns(2)
+    col_b1.download_button("📥 Baixar Backup JSON", data=json.dumps(st.session_state.produtos_totais), file_name="backup.json")
+    uploaded = col_b2.file_uploader("📤 Carregar Backup", type=['json'])
+    if uploaded:
+        st.session_state.produtos_totais = json.load(uploaded)
+        salvar_catalogo(st.session_state.produtos_totais)
+        st.rerun()
+
 # Edição ou Adição
-if st.session_state.get("edit_index") is not None:
-    idx = st.session_state["edit_index"]
+if st.session_state.edit_index is not None:
+    idx = st.session_state.edit_index
     item = st.session_state.produtos_totais[idx]
     st.subheader(f"✏️ Editando: {item['Nome']}")
-    # ... (restante da lógica de edição igual à anterior)
-    if st.button("❌ Cancelar"): st.session_state.edit_index = None; st.rerun()
+    c_e1, c_e2 = st.columns(2)
+    new_cat = c_e1.text_input("Categoria", value=item['Categoria'])
+    new_nome = c_e1.text_input("Nome", value=item['Nome'])
+    new_desc = c_e2.text_area("Descrição", value=item['Descricao'])
+    new_preco = c_e2.text_input("Preço", value=item['Preco'])
+    new_upload = c_e2.file_uploader("Trocar Foto", type=['jpg', 'png', 'jpeg'])
+    
+    col_btn1, col_btn2 = st.columns(2)
+    if col_btn1.button("💾 Salvar Alterações"):
+        lista_imgs = item['Imagens']
+        if new_upload:
+            caminho = os.path.join(UPLOAD_DIR, new_upload.name)
+            with open(caminho, "wb") as f: f.write(new_upload.getbuffer())
+            lista_imgs = [caminho]
+        
+        st.session_state.produtos_totais[idx] = {"Nome": new_nome, "Categoria": new_cat, "Imagens": lista_imgs, "Descricao": new_desc, "Preco": new_preco}
+        salvar_catalogo(st.session_state.produtos_totais)
+        st.session_state.edit_index = None
+        st.rerun()
+        
+    if col_btn2.button("❌ Cancelar Edição"):
+        st.session_state.edit_index = None
+        st.rerun()
+
 else:
     with st.expander("➕ Adicionar Novo Produto", expanded=True):
-        # ... (restante da lógica de cadastro)
-        pass
+        c1, c2 = st.columns(2)
+        cat = c1.text_input("Categoria")
+        nome = c1.text_input("Nome do Produto")
+        raw_d = c1.text_area("Ideias para descrição")
+        if c1.button("✨ Otimizar com IA"): st.session_state.temp_desc = otimizar_descricao_ia(nome, raw_d)
+        desc = c1.text_area("Descrição Final", value=st.session_state.temp_desc)
+        preco = c2.text_input("Preço (R$)")
+        links = c2.text_area("URLs Fotos (se houver)")
+        upload = c2.file_uploader("Upload Foto", type=['jpg', 'png', 'jpeg'])
+        if c2.button("✅ Salvar Produto"):
+            lista_imgs = [l.strip() for l in links.split('\n') if l.strip()]
+            if upload:
+                caminho = os.path.join(UPLOAD_DIR, upload.name)
+                with open(caminho, "wb") as f: f.write(upload.getbuffer())
+                lista_imgs.append(caminho)
+            st.session_state.produtos_totais.append({"Nome": nome, "Categoria": cat, "Imagens": lista_imgs, "Descricao": desc, "Preco": preco})
+            salvar_catalogo(st.session_state.produtos_totais)
+            st.session_state.temp_desc = ""
+            st.rerun()
 
-# Listagem Final com o botão de gerar
 st.divider()
-col1, col2 = st.columns([4, 1])
-col1.subheader("📦 Produtos Cadastrados")
-col2.download_button("🖨️ Gerar Catálogo HTML", gerar_html_master(st.session_state.produtos_totais, LOGO_FILE), "index.html", "text/html")
+
+# Listagem com Botão de Gerar HTML
+col_gen1, col_gen2 = st.columns([4, 1])
+col_gen1.subheader("📦 Produtos Cadastrados")
+col_gen2.download_button("🖨️ Gerar HTML", gerar_html_master(st.session_state.produtos_totais, LOGO_FILE), "index.html", "text/html")
 
 for i, p in enumerate(st.session_state.produtos_totais):
     with st.container(border=True):
         c_row1, c_row2, c_row3 = st.columns([1, 5, 2])
-        try:
-            if p.get('Imagens') and os.path.exists(p['Imagens'][0]):
-                c_row1.image(p['Imagens'][0], width=80)
-            else:
-                c_row1.write("📷")
-        except: c_row1.write("📷")
+        imgs = p.get('Imagens', [])
         
-        c_row2.write(f"**{p.get('Nome')}** - R$ {p.get('Preco')}")
-        if c_row3.button("✏️", key=f"e{i}"): st.session_state.edit_index = i; st.rerun()
+        # Proteção de carregamento flexível
+        if imgs and len(imgs) > 0:
+            caminho = imgs[0]
+            try:
+                c_row1.image(caminho, width=80)
+            except:
+                c_row1.write("📷")
+        else:
+            c_row1.write("📷")
+        
+        c_row2.write(f"### {p.get('Nome')}")
+        c_row2.write(f"**Preço:** R$ {p.get('Preco')} | **Cat:** {p.get('Categoria')}")
+        
+        if c_row3.button("✏️ Editar", key=f"e{i}"): st.session_state.edit_index = i; st.rerun()
+        if c_row3.button("🗑️ Excluir", key=f"d{i}"): 
+            st.session_state.produtos_totais.pop(i)
+            salvar_catalogo(st.session_state.produtos_totais)
+            st.rerun()
