@@ -66,18 +66,19 @@ def gerar_html_master(lista, logo_path):
     return html
 
 # --- INTERFACE CENTRALIZADA ---
-# Criamos colunas para criar margens laterais (O "Sanduíche")
-c_left, c_main, c_right = st.columns([1, 6, 1])
+c_left, c_main, c_right = st.columns([1, 5, 1])
 
 with c_main:
-    # Logo e Título
-    if os.path.exists(LOGO_FILE):
-        st.image(LOGO_FILE, width=200, use_container_width=False)
+    # 1. Logo Centralizada (Técnica do Sanduíche de colunas interno)
+    col_a, col_b, col_c = st.columns([1, 2, 1])
+    with col_b:
+        if os.path.exists(LOGO_FILE):
+            st.image(LOGO_FILE, use_container_width=True)
     
     st.markdown("<h1 style='text-align: center;'>Gestor Alphafest Master</h1>", unsafe_allow_html=True)
     st.divider()
 
-    # 1. Backup e Segurança
+    # 2. Backup e Segurança
     with st.expander("💾 Backup e Segurança", expanded=False):
         col_b1, col_b2 = st.columns(2)
         col_b1.download_button("📥 Baixar Backup JSON", data=json.dumps(st.session_state.produtos_totais), file_name="backup.json")
@@ -87,18 +88,16 @@ with c_main:
             salvar_catalogo(st.session_state.produtos_totais)
             st.rerun()
 
-    # 2. Adição e Edição
+    # 3. Adição e Edição
     if st.session_state.edit_index is not None:
         idx = st.session_state.edit_index
         item = st.session_state.produtos_totais[idx]
         st.subheader(f"✏️ Editando: {item['Nome']}")
-        
         c_e1, c_e2 = st.columns(2)
         new_cat = c_e1.text_input("Categoria", value=item['Categoria'])
         new_nome = c_e1.text_input("Nome", value=item['Nome'])
         new_desc = c_e2.text_area("Descrição", value=item['Descricao'])
         new_preco = c_e2.text_input("Preço", value=item['Preco'])
-        
         if st.button("💾 Salvar Alterações"):
             st.session_state.produtos_totais[idx] = {"Nome": new_nome, "Categoria": new_cat, "Imagens": item['Imagens'], "Descricao": new_desc, "Preco": new_preco}
             salvar_catalogo(st.session_state.produtos_totais)
@@ -110,7 +109,7 @@ with c_main:
             cat = c1.text_input("Categoria")
             nome = c1.text_input("Nome do Produto")
             raw_d = c1.text_area("Ideias para descrição")
-            if c1.button("✨ Otimizar Descrição com IA"): st.session_state.temp_desc = otimizar_descricao_ia(nome, raw_d)
+            if c1.button("✨ Otimizar com IA"): st.session_state.temp_desc = otimizar_descricao_ia(nome, raw_d)
             desc = c1.text_area("Descrição Final", value=st.session_state.temp_desc)
             preco = c2.text_input("Preço (R$)")
             links = c2.text_area("URLs Fotos (se houver)")
@@ -128,18 +127,24 @@ with c_main:
 
     st.divider()
     
-    # 3. Listagem
+    # 4. Listagem
     col_gen1, col_gen2 = st.columns([4, 1])
     col_gen1.subheader("📦 Produtos Cadastrados")
     col_gen2.download_button("🖨️ Gerar HTML", gerar_html_master(st.session_state.produtos_totais, LOGO_FILE), "index.html", "text/html")
     
     for i, p in enumerate(st.session_state.produtos_totais):
-        with st.container(border=True): # Caixa elegante para cada produto
-            c_row1, c_row2, c_row3 = st.columns([1, 4, 1])
+        with st.container(border=True):
+            # Layout das colunas na lista: Imagem (largura fixa) + Texto + Botões
+            c_row1, c_row2, c_row3 = st.columns([1, 5, 2])
             imgs = p.get('Imagens', [])
             if imgs and imgs[0]:
-                if os.path.exists(imgs[0]): c_row1.image(imgs[0], width=80)
+                if os.path.exists(imgs[0]): 
+                    c_row1.image(imgs[0], width=100)
+                else: 
+                    c_row1.image(imgs[0], width=100) # Tenta exibir links externos
+            
             c_row2.write(f"### {p.get('Nome')}")
             c_row2.write(f"**Preço:** R$ {p.get('Preco')} | **Cat:** {p.get('Categoria')}")
+            
             if c_row3.button("✏️ Editar", key=f"e{i}"): st.session_state.edit_index = i; st.rerun()
             if c_row3.button("🗑️ Excluir", key=f"d{i}"): st.session_state.produtos_totais.pop(i); salvar_catalogo(st.session_state.produtos_totais); st.rerun()
