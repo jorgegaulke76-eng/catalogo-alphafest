@@ -42,20 +42,6 @@ if "produtos_totais" not in st.session_state: st.session_state.produtos_totais =
 if "edit_index" not in st.session_state: st.session_state.edit_index = None
 if "temp_desc" not in st.session_state: st.session_state.temp_desc = ""
 
-# --- GERADOR DE HTML ---
-def gerar_html_master(lista, logo_path):
-    df = pd.DataFrame(lista)
-    categorias = df['Categoria'].unique() if not df.empty else []
-    final_logo_src = get_image_base64(logo_path) if os.path.exists(logo_path) else ""
-    
-    html = f"<html><body><div class='header'><img src='{final_logo_src}' style='max-width:200px'><h1>Catálogo</h1></div>"
-    for cat in categorias:
-        html += f"<h2>{cat}</h2>"
-        for _, p in df[df['Categoria'] == cat].iterrows():
-            html += f"<div><h3>{p.get('Nome')}</h3><p>{p.get('Descricao')}</p><span>R$ {p.get('Preco')}</span></div>"
-    html += "</body></html>"
-    return html
-
 # --- INTERFACE ---
 st.title("Gestor Alphafest Master")
 
@@ -81,7 +67,8 @@ if st.session_state.edit_index is not None:
     new_preco = c_e2.text_input("Preço", value=item['Preco'])
     new_upload = c_e2.file_uploader("Trocar Foto", type=['jpg', 'png', 'jpeg'])
     
-    if st.button("💾 Salvar Alterações"):
+    col_btn1, col_btn2 = st.columns(2)
+    if col_btn1.button("💾 Salvar Alterações"):
         lista_imgs = item['Imagens']
         if new_upload:
             caminho = os.path.join(UPLOAD_DIR, new_upload.name)
@@ -92,6 +79,11 @@ if st.session_state.edit_index is not None:
         salvar_catalogo(st.session_state.produtos_totais)
         st.session_state.edit_index = None
         st.rerun()
+        
+    if col_btn2.button("❌ Cancelar Edição"):
+        st.session_state.edit_index = None
+        st.rerun()
+
 else:
     with st.expander("➕ Adicionar Novo Produto", expanded=True):
         c1, c2 = st.columns(2)
@@ -123,20 +115,14 @@ for i, p in enumerate(st.session_state.produtos_totais):
         c_row1, c_row2, c_row3 = st.columns([1, 5, 2])
         imgs = p.get('Imagens', [])
         
-        # --- LÓGICA DE EXIBIÇÃO CORRIGIDA PARA LINKS E ARQUIVOS ---
-        if imgs and len(imgs) > 0:
-            caminho = imgs[0]
-            try:
-                if caminho.startswith("http"): # É um link da web
-                    c_row1.image(caminho, width=80)
-                elif os.path.exists(caminho): # É um arquivo local
-                    c_row1.image(caminho, width=80)
-                else:
-                    c_row1.write("📷")
-            except:
-                c_row1.write("⚠️")
-        else:
-            c_row1.write("📷")
+        # Proteção de carregamento
+        try:
+            if imgs and len(imgs) > 0 and os.path.exists(imgs[0]):
+                c_row1.image(imgs[0], width=80)
+            else:
+                c_row1.write("📷")
+        except:
+            c_row1.write("⚠️")
         
         c_row2.write(f"### {p.get('Nome')}")
         c_row2.write(f"**Preço:** R$ {p.get('Preco')} | **Cat:** {p.get('Categoria')}")
