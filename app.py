@@ -4,7 +4,7 @@ import json
 import os
 import base64
 
-# Configurações
+# Configurações do App
 st.set_page_config(page_title="Gestor Alphafest Master", layout="wide")
 DB_FILE = "catalogo_db.json"
 UPLOAD_DIR = "uploads"
@@ -41,6 +41,20 @@ def otimizar_descricao_ia(nome, desc_raw):
 if "produtos_totais" not in st.session_state: st.session_state.produtos_totais = carregar_catalogo()
 if "edit_index" not in st.session_state: st.session_state.edit_index = None
 if "temp_desc" not in st.session_state: st.session_state.temp_desc = ""
+
+# --- GERADOR DE HTML ---
+def gerar_html_master(lista, logo_path):
+    df = pd.DataFrame(lista)
+    categorias = df['Categoria'].unique() if not df.empty else []
+    final_logo_src = get_image_base64(logo_path) if os.path.exists(logo_path) else ""
+    
+    html = f"<html><body><div class='header'><img src='{final_logo_src}' style='max-width:200px'><h1>Catálogo</h1></div>"
+    for cat in categorias:
+        html += f"<h2>{cat}</h2>"
+        for _, p in df[df['Categoria'] == cat].iterrows():
+            html += f"<div><h3>{p.get('Nome')}</h3><p>{p.get('Descricao')}</p><span>R$ {p.get('Preco')}</span></div>"
+    html += "</body></html>"
+    return html
 
 # --- INTERFACE ---
 st.title("Gestor Alphafest Master")
@@ -115,14 +129,17 @@ for i, p in enumerate(st.session_state.produtos_totais):
         c_row1, c_row2, c_row3 = st.columns([1, 5, 2])
         imgs = p.get('Imagens', [])
         
-        # Proteção de carregamento
-        try:
-            if imgs and len(imgs) > 0 and os.path.exists(imgs[0]):
-                c_row1.image(imgs[0], width=80)
-            else:
+        # --- CARREGAMENTO FLEXÍVEL DE IMAGENS ---
+        if imgs and len(imgs) > 0:
+            caminho = imgs[0]
+            try:
+                # Tenta carregar. Se falhar, vai para o except e mostra câmera
+                c_row1.image(caminho, width=80)
+            except Exception:
                 c_row1.write("📷")
-        except:
-            c_row1.write("⚠️")
+        else:
+            c_row1.write("📷")
+        # ----------------------------------------
         
         c_row2.write(f"### {p.get('Nome')}")
         c_row2.write(f"**Preço:** R$ {p.get('Preco')} | **Cat:** {p.get('Categoria')}")
