@@ -43,45 +43,58 @@ def gerar_html_master(lista, logo_path):
     categorias = df['Categoria'].unique() if not df.empty else []
     final_logo_src = get_image_base64(logo_path) if os.path.exists(logo_path) else ""
     
+    # CSS focado em legibilidade e menu lateral profissional
     css = """
     <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; background: #f4f7f6; color: #333; }
-        #sidebar { width: 100%; background: #fff; padding: 20px; box-sizing: border-box; border-bottom: 2px solid #ddd; text-align: center; }
-        #main { padding: 20px; }
-        .logo { width: 150px; margin-bottom: 10px; }
-        .nav-link { display: inline-block; padding: 10px; color: #333; text-decoration: none; font-weight: 600; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
-        .card { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; cursor: pointer; transition: 0.3s; }
-        .card:hover { transform: scale(1.02); }
-        .card img { width: 100%; height: 200px; object-fit: cover; }
-        .card-body { padding: 15px; }
-        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
-        #modal img { max-width: 90%; max-height: 90%; border-radius: 5px; }
-        @media (min-width: 768px) {
-            body { display: flex; }
-            #sidebar { width: 250px; height: 100vh; position: sticky; top: 0; border-right: 1px solid #ddd; border-bottom: none; text-align: left; }
-            .nav-link { display: block; border-bottom: 1px solid #eee; }
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; display: flex; background: #f9f9f9; color: #333; }
+        
+        /* Menu Lateral (Sidebar) */
+        #sidebar { width: 280px; background: #2c3e50; padding: 30px 20px; height: 100vh; position: sticky; top: 0; color: white; box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
+        .logo { width: 100%; margin-bottom: 40px; border-radius: 8px; }
+        #sidebar h3 { color: #bdc3c7; font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px; }
+        .nav-link { display: block; padding: 15px 10px; color: #ecf0f1; text-decoration: none; font-weight: 500; font-size: 1.1em; border-bottom: 1px solid #34495e; transition: 0.3s; }
+        .nav-link:hover { background: #34495e; color: #fff; padding-left: 20px; }
+        
+        /* Conteúdo Principal */
+        #main { flex-grow: 1; padding: 40px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 30px; }
+        .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); cursor: pointer; transition: 0.3s; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        .card img { width: 100%; height: 220px; object-fit: cover; }
+        .card-body { padding: 20px; }
+        .card h3 { margin: 0 0 10px 0; font-size: 1.4em; }
+        .price { color: #27ae60; font-weight: bold; font-size: 1.4em; }
+        
+        /* Modal Zoom */
+        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; }
+        #modal img { max-width: 85%; max-height: 85%; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        
+        /* Responsividade Celular */
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            #sidebar { width: 100%; height: auto; position: relative; padding: 20px; box-shadow: none; }
+            .nav-link { padding: 20px; font-size: 1.2em; text-align: center; }
         }
     </style>
     """
     
     html = f"<html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>{css}</head><body>"
-    html += f"<div id='sidebar'><img src='{final_logo_src}' class='logo'><h3>Categorias</h3>"
+    html += f"<div id='sidebar'><img src='{final_logo_src}' class='logo'><h3>Menu de Categorias</h3>"
     for cat in categorias:
         html += f"<a href='#{cat.replace(' ', '_')}' class='nav-link'>{cat}</a>"
-    html += "</div><div id='main'><h1>Nosso Catálogo</h1>"
+    html += "</div><div id='main'><h1>Nosso Catálogo Alphafest</h1>"
     
     if not df.empty:
         for cat in categorias:
-            html += f"<h2 id='{cat.replace(' ', '_')}'>{cat}</h2><div class='grid'>"
+            html += f"<h2 id='{cat.replace(' ', '_')}' style='margin-top:50px; border-bottom:2px solid #ddd; padding-bottom:10px;'>{cat}</h2><div class='grid'>"
             for _, p in df[df['Categoria'] == cat].iterrows():
                 imgs = p.get('Imagens', [])
                 img_path = imgs[0] if imgs else ""
                 src = img_path if img_path.startswith("http") else (get_image_base64(img_path) if (img_path and os.path.exists(img_path)) else "")
                 
-                img_tag = f"<img src='{src}' onclick='openModal(\"{src}\")'>" if src else "<div style='height:200px; background:#eee;'></div>"
+                img_tag = f"<img src='{src}' onclick='openModal(\"{src}\")'>" if src else "<div style='height:220px; background:#eee; display:flex; align-items:center; justify-content:center;'>Sem imagem</div>"
                 html += f"""<div class='card'>{img_tag}<div class='card-body'>
-                            <h3>{p.get('Nome')}</h3><p>{p.get('Descricao')}</p><span style='color:green; font-weight:bold'>R$ {p.get('Preco')}</span></div></div>"""
+                            <h3>{p.get('Nome')}</h3><p>{p.get('Descricao')}</p><span class='price'>R$ {p.get('Preco')}</span></div></div>"""
             html += "</div>"
     
     html += "</div><div id='modal' onclick='this.style.display=\"none\"'><img id='modal-img'></div>"
@@ -167,13 +180,20 @@ for i, p in enumerate(st.session_state.produtos_totais):
     with st.container(border=True):
         c_row1, c_row2, c_row3 = st.columns([1, 5, 2])
         imgs = p.get('Imagens', [])
+        
+        # Proteção de carregamento flexível
         if imgs and len(imgs) > 0:
             caminho = imgs[0]
-            try: c_row1.image(caminho, width=80)
-            except: c_row1.write("📷")
-        else: c_row1.write("📷")
+            try:
+                c_row1.image(caminho, width=80)
+            except:
+                c_row1.write("📷")
+        else:
+            c_row1.write("📷")
+        
         c_row2.write(f"### {p.get('Nome')}")
         c_row2.write(f"**Preço:** R$ {p.get('Preco')} | **Cat:** {p.get('Categoria')}")
+        
         if c_row3.button("✏️ Editar", key=f"e{i}"): st.session_state.edit_index = i; st.rerun()
         if c_row3.button("🗑️ Excluir", key=f"d{i}"): 
             st.session_state.produtos_totais.pop(i)
