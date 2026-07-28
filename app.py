@@ -37,7 +37,7 @@ def get_image_base64(path):
 def otimizar_descricao_ia(nome, desc_raw):
     return f"Produto exclusivo Alphafest: {nome}. {desc_raw.strip()} | Acabamento impecável, produzido com máquinas de última geração para garantir a perfeição em cada peça."
 
-# --- GERADOR DE HTML PROFISSIONAL ---
+# --- GERADOR DE HTML (LAYOUT PROFISSIONAL COM ZOOM) ---
 def gerar_html_master(lista, logo_path):
     df = pd.DataFrame(lista)
     categorias = df['Categoria'].unique() if not df.empty else []
@@ -45,44 +45,47 @@ def gerar_html_master(lista, logo_path):
     
     css = """
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; margin: 0; padding: 40px; color: #333; }
-        .container { max-width: 1000px; margin: auto; }
-        .header { text-align: center; margin-bottom: 50px; }
-        .header h1 { font-size: 2.5em; color: #2c3e50; }
-        h2 { border-left: 5px solid #27ae60; padding-left: 15px; margin-top: 40px; color: #2c3e50; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; margin-top: 20px; }
-        .card { background: white; border-radius: 15px; padding: 0; box-shadow: 0 5px 15px rgba(0,0,0,0.08); transition: transform 0.3s; overflow: hidden; }
-        .card:hover { transform: translateY(-10px); box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; background: #f4f7f6; }
+        #sidebar { width: 250px; background: #fff; padding: 25px; height: 100vh; position: sticky; top: 0; border-right: 1px solid #ddd; }
+        #main { flex-grow: 1; padding: 40px; }
+        .logo { width: 100%; margin-bottom: 30px; }
+        .nav-link { display: block; padding: 10px; color: #333; text-decoration: none; font-weight: 600; border-bottom: 1px solid #eee; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+        .card { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s; }
+        .card:hover { transform: scale(1.02); }
         .card img { width: 100%; height: 200px; object-fit: cover; }
-        .card-body { padding: 20px; }
-        .card h3 { margin: 0 0 10px 0; font-size: 1.3em; }
-        .card p { color: #666; font-size: 0.95em; line-height: 1.4; }
-        .price { color: #27ae60; font-weight: bold; font-size: 1.3em; display: block; margin-top: 15px; }
+        .card-body { padding: 15px; }
+        /* Modal para Zoom */
+        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
+        #modal img { max-width: 90%; max-height: 90%; border-radius: 5px; }
     </style>
     """
     
-    html = f"<html><head><meta charset='UTF-8'>{css}</head><body><div class='container'>"
-    html += f"<div class='header'><img src='{final_logo_src}' style='max-width:200px'><h1>Nosso Catálogo</h1></div>"
+    html = f"<html><head><meta charset='UTF-8'>{css}</head><body>"
+    html += f"<div id='sidebar'><img src='{final_logo_src}' class='logo'><h3>Categorias</h3>"
+    for cat in categorias:
+        html += f"<a href='#{cat.replace(' ', '_')}' class='nav-link'>{cat}</a>"
+    html += "</div><div id='main'><h1>Nosso Catálogo</h1>"
     
     if not df.empty:
         for cat in categorias:
-            html += f"<h2>{cat}</h2><div class='grid'>"
+            html += f"<h2 id='{cat.replace(' ', '_')}'>{cat}</h2><div class='grid'>"
             for _, p in df[df['Categoria'] == cat].iterrows():
                 imgs = p.get('Imagens', [])
-                img_src = get_image_base64(imgs[0]) if (imgs and len(imgs) > 0 and os.path.exists(imgs[0])) else ""
-                img_tag = f"<img src='{img_src}'>" if img_src else "<div style='height:200px; background:#eee;'></div>"
+                img_path = imgs[0] if imgs else ""
+                # Lógica: Links http diretos vs Arquivos locais (Base64)
+                if img_path.startswith("http"):
+                    src = img_path
+                else:
+                    src = get_image_base64(img_path) if (img_path and os.path.exists(img_path)) else ""
                 
-                html += f"""
-                <div class='card'>
-                    {img_tag}
-                    <div class='card-body'>
-                        <h3>{p.get('Nome')}</h3>
-                        <p>{p.get('Descricao')}</p>
-                        <span class='price'>R$ {p.get('Preco')}</span>
-                    </div>
-                </div>"""
+                img_tag = f"<img src='{src}' onclick='openModal(\"{src}\")'>" if src else "<div style='height:200px; background:#eee;'></div>"
+                html += f"""<div class='card'>{img_tag}<div class='card-body'>
+                            <h3>{p.get('Nome')}</h3><p>{p.get('Descricao')}</p><span style='color:green; font-weight:bold'>R$ {p.get('Preco')}</span></div></div>"""
             html += "</div>"
-    html += "</div></body></html>"
+    
+    html += "</div><div id='modal' onclick='this.style.display=\"none\"'><img id='modal-img'></div>"
+    html += "<script>function openModal(src) { document.getElementById('modal-img').src = src; document.getElementById('modal').style.display = 'flex'; }</script></body></html>"
     return html
 
 # Inicialização
@@ -156,7 +159,7 @@ else:
 
 st.divider()
 
-# Listagem Protegida
+# Listagem com Botão de Gerar HTML
 col_gen1, col_gen2 = st.columns([4, 1])
 col_gen1.subheader("📦 Produtos Cadastrados")
 col_gen2.download_button("🖨️ Gerar HTML", gerar_html_master(st.session_state.produtos_totais, LOGO_FILE), "index.html", "text/html")
