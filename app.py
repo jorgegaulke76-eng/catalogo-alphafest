@@ -79,8 +79,16 @@ if st.session_state.edit_index is not None:
     new_nome = c_e1.text_input("Nome", value=item['Nome'])
     new_desc = c_e2.text_area("Descrição", value=item['Descricao'])
     new_preco = c_e2.text_input("Preço", value=item['Preco'])
+    new_upload = c_e2.file_uploader("Trocar Foto", type=['jpg', 'png', 'jpeg'])
+    
     if st.button("💾 Salvar Alterações"):
-        st.session_state.produtos_totais[idx] = {"Nome": new_nome, "Categoria": new_cat, "Imagens": item['Imagens'], "Descricao": new_desc, "Preco": new_preco}
+        lista_imgs = item['Imagens']
+        if new_upload:
+            caminho = os.path.join(UPLOAD_DIR, new_upload.name)
+            with open(caminho, "wb") as f: f.write(new_upload.getbuffer())
+            lista_imgs = [caminho]
+        
+        st.session_state.produtos_totais[idx] = {"Nome": new_nome, "Categoria": new_cat, "Imagens": lista_imgs, "Descricao": new_desc, "Preco": new_preco}
         salvar_catalogo(st.session_state.produtos_totais)
         st.session_state.edit_index = None
         st.rerun()
@@ -115,20 +123,14 @@ for i, p in enumerate(st.session_state.produtos_totais):
         c_row1, c_row2, c_row3 = st.columns([1, 5, 2])
         imgs = p.get('Imagens', [])
         
-        # --- PROTEÇÃO DE IMAGENS ---
-        if imgs and len(imgs) > 0:
-            caminho = imgs[0]
-            try:
-                if caminho.startswith("http"):
-                    c_row1.image(caminho, width=80)
-                elif os.path.exists(caminho):
-                    c_row1.image(caminho, width=80)
-                else:
-                    c_row1.write("📷")
-            except:
-                c_row1.write("⚠️")
-        else:
-            c_row1.write("📷")
+        # Proteção de carregamento
+        try:
+            if imgs and len(imgs) > 0 and os.path.exists(imgs[0]):
+                c_row1.image(imgs[0], width=80)
+            else:
+                c_row1.write("📷")
+        except:
+            c_row1.write("⚠️")
         
         c_row2.write(f"### {p.get('Nome')}")
         c_row2.write(f"**Preço:** R$ {p.get('Preco')} | **Cat:** {p.get('Categoria')}")
