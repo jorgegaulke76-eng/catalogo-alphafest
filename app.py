@@ -45,17 +45,14 @@ def gerar_html_master(lista, logo_input):
     categorias = df['Categoria'].unique() if not df.empty else []
     
     # Processa Logo
-    if logo_input.startswith("http"):
-        final_logo_src = logo_input
-    else:
-        final_logo_src = get_image_base64(logo_input)
+    final_logo_src = logo_input # Usa o link direto do GitHub
     
     html = f"""<html><head><meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body {{ font-family: 'Segoe UI', sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }}
         header {{ background: #fff; padding: 20px; text-align: center; border-bottom: 2px solid #eee; }}
-        .logo {{ max-width: 150px; margin-bottom: 10px; }}
+        .logo {{ max-width: 200px; margin-bottom: 10px; }}
         nav {{ background: #333; padding: 10px; position: sticky; top: 0; z-index: 100; display: flex; gap: 10px; overflow-x: auto; justify-content: center; }}
         nav a {{ color: white; text-decoration: none; padding: 8px 15px; white-space: nowrap; font-size: 0.9em; }}
         .container {{ max-width: 900px; margin: 0 auto; padding: 20px; }}
@@ -98,7 +95,7 @@ def gerar_html_master(lista, logo_input):
 st.title("📦 Gestor Alphafest (Admin)")
 
 # Configurações de Logo
-logo_path = st.text_input("Caminho ou URL da Logo (ex: logo.png ou link http)", value="logo.png")
+logo_path = st.text_input("Link da Logo no GitHub (Raw URL)", value="https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPOSITORIO/main/logo.png")
 
 with st.expander("💾 Backup e Segurança"):
     col_bkp1, col_bkp2 = st.columns(2)
@@ -145,7 +142,7 @@ for i, p in enumerate(st.session_state.produtos_totais):
     imgs = p.get('Imagens', [])
     if imgs: 
         if os.path.exists(imgs[0]): c[0].image(imgs[0], width=100)
-        else: c[0].image(imgs[0], width=100) # Tenta exibir links web
+        else: c[0].image(imgs[0], width=100)
     c[1].write(f"**{p.get('Nome')}** - R$ {p.get('Preco')}")
     if c[2].button("Excluir", key=f"d{i}"):
         st.session_state.produtos_totais.pop(i)
