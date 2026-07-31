@@ -20,3 +20,8 @@
 - [ ] Caixa e formas de pagamento
 - [ ] Custos e margem
 - [ ] Fluxo financeiro
+
+### Concluído na 3.2.1
+- Fluxo de pedidos da arte à entrega
+- Linha do tempo e processos operacionais
+- Visão simplificada para uma operação pequena

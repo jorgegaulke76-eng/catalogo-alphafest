@@ -23,7 +23,7 @@ ARQUIVO_HISTORICO = "historico_orcamentos.json"
 ARQUIVO_CATALOGO = "catalogo_db.json"
 ARQUIVO_CLIENTES = "clientes_db.json"
 ARQUIVO_PRODUCAO = "producao_db.json"
-VERSAO_APP = "3.2.0"
+VERSAO_APP = "3.2.1"
 PASTA_UPLOADS = "uploads"
 os.makedirs(PASTA_UPLOADS, exist_ok=True)
 
@@ -1280,33 +1280,35 @@ def carregar_cliente_no_orcamento(cliente):
 
 
 
-# --- PRODUÇÃO (VERSÃO 3.2) ---
-SETORES_PRODUCAO = [
-    "Papelaria personalizada",
+# --- FLUXO DE PEDIDOS (VERSÃO 3.2.1) ---
+STATUS_FLUXO = [
+    "Pedido recebido",
+    "Arte pendente",
+    "Arte em desenvolvimento",
+    "Aguardando aprovação",
+    "Arte aprovada",
+    "Pronto para produzir",
+    "Em produção",
+    "Montagem/acabamento",
+    "Pronto",
+    "Entregue",
+]
+
+PROCESSOS_FLUXO = [
+    "Criação/ajuste de arte",
+    "Impressão papelaria",
     "Papel de arroz",
-    "Balões",
+    "Corte/laser",
     "Impressão 3D",
-    "Lembrancinhas",
-    "Montagem/decoração",
-    "Gráfica rápida",
-    "Outros",
+    "Balões",
+    "Montagem",
+    "Acabamento",
+    "Separação",
+    "Entrega/instalação",
+    "Outro",
 ]
 
-GRUPOS_BALOES = [
-    "Balões Gás Hélio",
-    "Balloon Cake",
-    "Bubble 55 cm",
-    "Bubble Médio",
-    "Bubble Pequeno",
-    "Bubble com Haste",
-    "Balões Metalizados Personagem",
-    "Balão Metalizado com Vareta",
-    "Arco de Balão Tradicional",
-    "Arco de Balão Desconstruído",
-]
-
-STATUS_PRODUCAO = ["A fazer", "Em produção", "Aguardando aprovação", "Pronto", "Entregue"]
-PRIORIDADES_PRODUCAO = ["Normal", "Alta", "Urgente"]
+PRIORIDADES_FLUXO = ["Normal", "Alta", "Urgente"]
 
 
 def carregar_producao():
@@ -1316,46 +1318,65 @@ def carregar_producao():
 
 def salvar_producao(lista):
     if not isinstance(lista, list):
-        raise ValueError("A produção precisa ser uma lista.")
+        raise ValueError("O fluxo de pedidos precisa ser uma lista.")
     save_document("producao_db", lista, ARQUIVO_PRODUCAO)
 
 
-def inferir_setor_grupo(produto):
-    nome = str(produto or "").strip().lower()
-    if "papel de arroz" in nome or "papel arroz" in nome:
-        return "Papel de arroz", "Papel de arroz"
-    if any(x in nome for x in ["bubble", "balão", "balao", "balloon", "arco de bal"]):
-        mapa = [
-            (["gás hélio", "gas helio", "hélio", "helio"], "Balões Gás Hélio"),
-            (["balloon cake", "baloon cake", "balão cake", "balao cake"], "Balloon Cake"),
-            (["bubble 55"], "Bubble 55 cm"),
-            (["bubble médio", "bubble medio"], "Bubble Médio"),
-            (["bubble pequeno"], "Bubble Pequeno"),
-            (["bubble com haste", "bubble haste"], "Bubble com Haste"),
-            (["metalizado personagem"], "Balões Metalizados Personagem"),
-            (["metalizado com vareta", "metalizado vareta"], "Balão Metalizado com Vareta"),
-            (["arco", "tradicional"], "Arco de Balão Tradicional"),
-            (["desconstruído", "desconstruido"], "Arco de Balão Desconstruído"),
-        ]
-        for termos, grupo in mapa:
-            if all(t in nome for t in termos) or any(t in nome for t in termos if len(termos) == 1):
-                return "Balões", grupo
-        return "Balões", "Outros Balões"
-    if "3d" in nome or "impressão 3d" in nome or "impressao 3d" in nome:
-        return "Impressão 3D", str(produto or "Impressão 3D").strip()
-    if any(x in nome for x in ["lembranc", "chaveiro", "tubolata", "latinha", "sacolinha"]):
-        return "Lembrancinhas", str(produto or "Lembrancinhas").strip()
-    if any(x in nome for x in ["montagem", "decoração", "decoracao", "instalação", "instalacao"]):
-        return "Montagem/decoração", "Montagem/decoração"
-    if any(x in nome for x in ["banner", "adesivo", "tag", "cartão", "cartao", "impressão", "impressao", "faixa", "panfleto"]):
-        return "Gráfica rápida", str(produto or "Gráfica rápida").strip()
-    if any(x in nome for x in ["topo", "caixa", "convite", "papelaria", "centro de mesa", "cachepô", "cachepo"]):
-        return "Papelaria personalizada", str(produto or "Papelaria personalizada").strip()
-    return "Outros", str(produto or "Outros").strip()
+def inferir_processos(produto, especificacoes=""):
+    texto = f"{produto} {especificacoes}".lower()
+    processos = []
+    if any(x in texto for x in ["personaliz", "tema:", "nome:", "topo", "convite", "caixa", "tag"]):
+        processos.append("Criação/ajuste de arte")
+    if "papel de arroz" in texto or "papel arroz" in texto:
+        processos.append("Papel de arroz")
+    if any(x in texto for x in ["3d", "pla", "impressão 3d", "impressao 3d"]):
+        processos.append("Impressão 3D")
+    if any(x in texto for x in ["laser", "mdf", "acrílico", "acrilico"]):
+        processos.append("Corte/laser")
+    if any(x in texto for x in ["balão", "balao", "bubble", "balloon", "arco"]):
+        processos.append("Balões")
+    if any(x in texto for x in ["papelaria", "topo", "caixa", "adesivo", "tag", "convite", "banner", "faixa"]):
+        processos.append("Impressão papelaria")
+    if any(x in texto for x in ["montagem", "cachepô", "cachepo", "lembranc", "tubolata", "centro de mesa"]):
+        processos.append("Montagem")
+    if not processos:
+        processos = ["Montagem", "Acabamento"]
+    # mantém ordem e remove repetições
+    return list(dict.fromkeys(processos))
+
+
+def status_inicial_fluxo(produto, especificacoes=""):
+    processos = inferir_processos(produto, especificacoes)
+    return "Arte pendente" if "Criação/ajuste de arte" in processos else "Pronto para produzir"
+
+
+def normalizar_status_fluxo(status, entregue=False):
+    if entregue:
+        return "Entregue"
+    mapa_antigo = {
+        "A fazer": "Pronto para produzir",
+        "Em produção": "Em produção",
+        "Aguardando aprovação": "Aguardando aprovação",
+        "Pronto": "Pronto",
+        "Entregue": "Entregue",
+    }
+    status = mapa_antigo.get(status, status)
+    return status if status in STATUS_FLUXO else "Pedido recebido"
+
+
+def adicionar_evento_timeline(tarefa, descricao):
+    timeline = tarefa.get("timeline")
+    if not isinstance(timeline, list):
+        timeline = []
+    timeline.append({
+        "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "descricao": descricao,
+    })
+    tarefa["timeline"] = timeline[-50:]
 
 
 def sincronizar_producao_com_propostas():
-    """Cria tarefas para os itens das propostas sem apagar classificações manuais."""
+    """Cria um fluxo por item de proposta e preserva as alterações manuais."""
     tarefas = carregar_producao()
     existentes = {t.get("id"): t for t in tarefas}
     ids_ativos = set()
@@ -1365,22 +1386,26 @@ def sincronizar_producao_com_propostas():
         for indice, item in enumerate(prop.get("itens", []) or []):
             tarefa_id = f"{numero}::{indice}"
             ids_ativos.add(tarefa_id)
-            setor, grupo = inferir_setor_grupo(item.get("produto", ""))
+            produto = item.get("produto", "Produto não informado")
+            especificacoes = item.get("especificacoes", "")
+            processos = inferir_processos(produto, especificacoes)
+            status_base = "Entregue" if prop.get("entregue", False) else status_inicial_fluxo(produto, especificacoes)
             base = {
                 "id": tarefa_id,
                 "numero_proposta": numero,
                 "indice_item": indice,
                 "cliente_nome": prop.get("cliente_nome", "Cliente não informado"),
+                "whatsapp": prop.get("whatsapp", prop.get("cliente_wa", "")),
                 "data_entrega": prop.get("data_entrega", ""),
-                "produto": item.get("produto", "Produto não informado"),
-                "especificacoes": item.get("especificacoes", ""),
+                "produto": produto,
+                "especificacoes": especificacoes,
                 "quantidade": item.get("quantidade", 0),
-                "setor": setor,
-                "grupo": grupo,
-                "status": "Entregue" if prop.get("entregue", False) else "A fazer",
+                "status": status_base,
                 "prioridade": "Normal",
-                "responsavel": "",
+                "processos": processos,
+                "necessita_arte": "Criação/ajuste de arte" in processos,
                 "observacao_interna": "",
+                "timeline": [{"data": datetime.now().strftime("%d/%m/%Y %H:%M"), "descricao": "Pedido incluído no fluxo"}],
                 "atualizado_em": datetime.now().strftime("%d/%m/%Y %H:%M"),
             }
             if tarefa_id not in existentes:
@@ -1389,17 +1414,28 @@ def sincronizar_producao_com_propostas():
                 alterado = True
             else:
                 atual = existentes[tarefa_id]
-                # Atualiza apenas dados vindos da proposta; preserva gestão manual.
-                for campo in ["cliente_nome", "data_entrega", "produto", "especificacoes", "quantidade"]:
+                for campo in ["cliente_nome", "whatsapp", "data_entrega", "produto", "especificacoes", "quantidade"]:
                     if atual.get(campo) != base[campo]:
                         atual[campo] = base[campo]
                         alterado = True
-                if prop.get("entregue", False) and atual.get("status") != "Entregue":
-                    atual["status"] = "Entregue"
+                if not isinstance(atual.get("processos"), list):
+                    atual["processos"] = processos
                     alterado = True
-    # Mantém tarefas antigas para histórico, mas as sinaliza como órfãs se a proposta/item não existir mais.
+                if "necessita_arte" not in atual:
+                    atual["necessita_arte"] = "Criação/ajuste de arte" in atual.get("processos", [])
+                    alterado = True
+                novo_status = normalizar_status_fluxo(atual.get("status"), prop.get("entregue", False))
+                if atual.get("status") != novo_status:
+                    atual["status"] = novo_status
+                    alterado = True
+                if not isinstance(atual.get("timeline"), list):
+                    atual["timeline"] = []
+                    alterado = True
     for tarefa in tarefas:
-        tarefa["ativa"] = tarefa.get("id") in ids_ativos
+        ativa = tarefa.get("id") in ids_ativos
+        if tarefa.get("ativa") != ativa:
+            tarefa["ativa"] = ativa
+            alterado = True
     if alterado:
         salvar_producao(tarefas)
     return tarefas
@@ -1407,23 +1443,27 @@ def sincronizar_producao_com_propostas():
 
 def salvar_tarefa_producao(tarefa_id, novos_dados):
     tarefas = carregar_producao()
+    numero = novos_dados.get("numero_proposta")
     for tarefa in tarefas:
         if tarefa.get("id") == tarefa_id:
+            status_anterior = normalizar_status_fluxo(tarefa.get("status"))
             tarefa.update(novos_dados)
+            tarefa["status"] = normalizar_status_fluxo(tarefa.get("status"))
             tarefa["atualizado_em"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+            if status_anterior != tarefa["status"]:
+                adicionar_evento_timeline(tarefa, f"Status alterado de {status_anterior} para {tarefa['status']}")
+            else:
+                adicionar_evento_timeline(tarefa, "Dados do fluxo atualizados")
             break
     salvar_producao(tarefas)
-
-    # Quando todos os itens ativos da proposta forem entregues, marca a proposta como entregue.
-    numero = novos_dados.get("numero_proposta")
     if numero:
         relacionadas = [t for t in tarefas if t.get("numero_proposta") == numero and t.get("ativa", True)]
-        if relacionadas and all(t.get("status") == "Entregue" for t in relacionadas):
+        if relacionadas and all(normalizar_status_fluxo(t.get("status")) == "Entregue" for t in relacionadas):
             alternar_status(numero, "entregue", True)
 
 
 def classe_prazo_producao(data_txt, status):
-    if status == "Entregue":
+    if normalizar_status_fluxo(status) == "Entregue":
         return "Concluído"
     data_item = data_entrega_segura(data_txt)
     if not data_item:
@@ -1433,10 +1473,11 @@ def classe_prazo_producao(data_txt, status):
         return "Atrasado"
     if dias == 0:
         return "Hoje"
+    if dias == 1:
+        return "Amanhã"
     if dias <= 3:
         return "Próximos 3 dias"
     return "Futuro"
-
 
 # --- CATÁLOGO INTEGRADO ---
 def carregar_catalogo():
@@ -1665,7 +1706,7 @@ mensagem_sucesso = st.session_state.pop("_mensagem_sucesso_pendente", None)
 if mensagem_sucesso:
     st.success(mensagem_sucesso)
 
-aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs(["➕ Novo Orçamento", "📋 Histórico", "🏭 Produção", "📊 Relatórios", "📦 Catálogo", "👥 Clientes"])
+aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs(["➕ Novo Orçamento", "📋 Histórico", "🎯 Fluxo de Pedidos", "📊 Relatórios", "📦 Catálogo", "👥 Clientes"])
 
 with aba1:
     # Cabeçalho centralizado da área de orçamento.
@@ -1839,114 +1880,112 @@ with aba2:
 
 
 with aba3:
-    st.markdown("<h2 style='text-align:center;'>🏭 Produção</h2>", unsafe_allow_html=True)
-    st.caption("Acompanhe cada item dos pedidos por setor, grupo, prazo, prioridade e status.")
+    st.markdown("<h2 style='text-align:center;'>🎯 Fluxo de Pedidos</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center;color:#6b7280;'>Mostra o que precisa ser feito agora, da arte até a entrega.</p>", unsafe_allow_html=True)
 
     tarefas = sincronizar_producao_com_propostas()
     tarefas_ativas = [t for t in tarefas if t.get("ativa", True)]
 
-    # Filtros
-    f1, f2, f3, f4 = st.columns(4)
-    filtro_prazo = f1.selectbox("Prazo", ["Todos", "Atrasado", "Hoje", "Próximos 3 dias", "Futuro", "Sem data", "Concluído"])
-    filtro_setor = f2.selectbox("Setor", ["Todos"] + SETORES_PRODUCAO)
-    filtro_status = f3.selectbox("Status", ["Todos"] + STATUS_PRODUCAO)
-    filtro_prioridade = f4.selectbox("Prioridade", ["Todas"] + PRIORIDADES_PRODUCAO)
-    busca_prod = st.text_input("🔎 Buscar por cliente, proposta, produto ou detalhes", key="busca_producao")
+    atrasados = sum(1 for t in tarefas_ativas if classe_prazo_producao(t.get("data_entrega"), t.get("status")) == "Atrasado")
+    hoje_fluxo = sum(1 for t in tarefas_ativas if classe_prazo_producao(t.get("data_entrega"), t.get("status")) == "Hoje")
+    aprovacao = sum(1 for t in tarefas_ativas if normalizar_status_fluxo(t.get("status")) == "Aguardando aprovação")
+    produzir = sum(1 for t in tarefas_ativas if normalizar_status_fluxo(t.get("status")) in ["Arte aprovada", "Pronto para produzir"])
+    prontos = sum(1 for t in tarefas_ativas if normalizar_status_fluxo(t.get("status")) == "Pronto")
 
-    filtradas = []
-    for tarefa in tarefas_ativas:
-        prazo_tarefa = classe_prazo_producao(tarefa.get("data_entrega"), tarefa.get("status"))
-        texto_busca = " ".join(str(tarefa.get(c, "")) for c in ["cliente_nome", "numero_proposta", "produto", "especificacoes", "grupo"]).lower()
-        if filtro_prazo != "Todos" and prazo_tarefa != filtro_prazo:
-            continue
-        if filtro_setor != "Todos" and tarefa.get("setor") != filtro_setor:
-            continue
-        if filtro_status != "Todos" and tarefa.get("status") != filtro_status:
-            continue
-        if filtro_prioridade != "Todas" and tarefa.get("prioridade") != filtro_prioridade:
-            continue
-        if busca_prod.strip() and busca_prod.strip().lower() not in texto_busca:
-            continue
-        filtradas.append(tarefa)
+    m1, m2, m3, m4, m5 = st.columns(5)
+    m1.metric("🚨 Atrasados", atrasados)
+    m2.metric("⚠️ Para hoje", hoje_fluxo)
+    m3.metric("🟡 Aguardando aprovação", aprovacao)
+    m4.metric("🔵 Prontos para produzir", produzir)
+    m5.metric("✅ Prontos", prontos)
 
-    # Indicadores
-    atrasadas = sum(1 for t in tarefas_ativas if classe_prazo_producao(t.get("data_entrega"), t.get("status")) == "Atrasado")
-    hoje_prod = sum(1 for t in tarefas_ativas if classe_prazo_producao(t.get("data_entrega"), t.get("status")) == "Hoje")
-    em_producao = sum(1 for t in tarefas_ativas if t.get("status") == "Em produção")
-    prontas = sum(1 for t in tarefas_ativas if t.get("status") == "Pronto")
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Atrasados", atrasadas)
-    m2.metric("Entrega hoje", hoje_prod)
-    m3.metric("Em produção", em_producao)
-    m4.metric("Prontos", prontas)
+    visao, artes, producao, entregas = st.tabs(["📌 Visão geral", "🎨 Artes", "⚙️ Produção", "📦 Prontos/entregas"])
 
-    ordem_prioridade = {"Urgente": 0, "Alta": 1, "Normal": 2}
-    filtradas.sort(key=lambda t: (
-        1 if t.get("status") == "Entregue" else 0,
-        data_entrega_segura(t.get("data_entrega")) or date.max,
-        ordem_prioridade.get(t.get("prioridade"), 9),
-        str(t.get("cliente_nome", "")),
-    ))
-    st.caption(f"{len(filtradas)} item(ns) de produção encontrado(s).")
+    def renderizar_cartoes_fluxo(lista, prefixo):
+        if not lista:
+            st.info("Nenhum item nesta etapa.")
+            return
+        ordem_prioridade = {"Urgente": 0, "Alta": 1, "Normal": 2}
+        lista = sorted(lista, key=lambda t: (
+            data_entrega_segura(t.get("data_entrega")) or date.max,
+            ordem_prioridade.get(t.get("prioridade", "Normal"), 9),
+            str(t.get("cliente_nome", "")),
+        ))
+        for tarefa in lista:
+            tid = tarefa.get("id")
+            status_atual = normalizar_status_fluxo(tarefa.get("status"))
+            prazo = classe_prazo_producao(tarefa.get("data_entrega"), status_atual)
+            icone = {"Atrasado": "🚨", "Hoje": "⚠️", "Amanhã": "📅", "Concluído": "✅"}.get(prazo, "📌")
+            titulo = f"{icone} {tarefa.get('data_entrega') or 'Sem data'} | {tarefa.get('cliente_nome')} | {tarefa.get('produto')}"
+            with st.expander(titulo, expanded=(prazo in ["Atrasado", "Hoje"])):
+                st.write(f"**Pedido:** {tarefa.get('numero_proposta')}  •  **Qtd.:** {tarefa.get('quantidade')}  •  **Status:** {status_atual}")
+                if tarefa.get("whatsapp"):
+                    st.write(f"**WhatsApp:** {tarefa.get('whatsapp')}")
+                st.write(f"**Detalhes:** {tarefa.get('especificacoes') or 'Não informado'}")
+                st.caption(f"Prazo: {prazo} • Atualizado em: {tarefa.get('atualizado_em', '—')}")
 
-    if not filtradas:
-        st.info("Nenhum item de produção corresponde aos filtros.")
+                c1, c2 = st.columns(2)
+                novo_status = c1.selectbox("Etapa atual", STATUS_FLUXO, index=STATUS_FLUXO.index(status_atual), key=f"fluxo_status_{prefixo}_{tid}")
+                prioridade_atual = tarefa.get("prioridade", "Normal") if tarefa.get("prioridade", "Normal") in PRIORIDADES_FLUXO else "Normal"
+                prioridade = c2.selectbox("Prioridade", PRIORIDADES_FLUXO, index=PRIORIDADES_FLUXO.index(prioridade_atual), key=f"fluxo_prio_{prefixo}_{tid}")
 
-    for tarefa in filtradas:
-        tid = tarefa.get("id")
-        prazo_tarefa = classe_prazo_producao(tarefa.get("data_entrega"), tarefa.get("status"))
-        icone_prazo = {"Atrasado": "🚨", "Hoje": "⚠️", "Próximos 3 dias": "📅", "Concluído": "✅"}.get(prazo_tarefa, "📦")
-        titulo = (
-            f"{icone_prazo} {tarefa.get('data_entrega') or 'Sem data'} | "
-            f"{tarefa.get('cliente_nome')} | {tarefa.get('produto')} | "
-            f"{tarefa.get('status', 'A fazer')}"
-        )
-        with st.expander(titulo):
-            st.write(f"**Proposta:** {tarefa.get('numero_proposta')}")
-            st.write(f"**Quantidade:** {tarefa.get('quantidade')}")
-            st.write(f"**Detalhes:** {tarefa.get('especificacoes') or 'Não informado'}")
-            st.caption(f"Situação do prazo: {prazo_tarefa} • Última atualização: {tarefa.get('atualizado_em', '—')}")
+                processos_atuais = [p for p in tarefa.get("processos", []) if p in PROCESSOS_FLUXO]
+                processos = st.multiselect("Processos necessários", PROCESSOS_FLUXO, default=processos_atuais, key=f"fluxo_proc_{prefixo}_{tid}")
+                necessita_arte = st.checkbox("Necessita criação ou ajuste de arte", value=bool(tarefa.get("necessita_arte", False)), key=f"fluxo_arte_{prefixo}_{tid}")
+                observacao = st.text_area("Observação interna", value=str(tarefa.get("observacao_interna", "")), key=f"fluxo_obs_{prefixo}_{tid}")
 
-            p1, p2 = st.columns(2)
-            setor_atual = tarefa.get("setor") if tarefa.get("setor") in SETORES_PRODUCAO else "Outros"
-            setor = p1.selectbox("Setor", SETORES_PRODUCAO, index=SETORES_PRODUCAO.index(setor_atual), key=f"setor_{tid}")
-            if setor == "Balões":
-                grupos = GRUPOS_BALOES + ["Outros Balões"]
-                grupo_atual = tarefa.get("grupo", "Outros Balões")
-                if grupo_atual not in grupos:
-                    grupos.append(grupo_atual)
-                grupo = p2.selectbox("Grupo/Subcategoria", grupos, index=grupos.index(grupo_atual), key=f"grupo_{tid}")
-            else:
-                grupo = p2.text_input("Grupo/Subcategoria", value=str(tarefa.get("grupo", "")), key=f"grupo_{tid}")
+                b1, b2 = st.columns(2)
+                if b1.button("💾 Salvar andamento", key=f"salvar_fluxo_{prefixo}_{tid}", type="primary", use_container_width=True):
+                    salvar_tarefa_producao(tid, {
+                        "numero_proposta": tarefa.get("numero_proposta"),
+                        "status": novo_status,
+                        "prioridade": prioridade,
+                        "processos": processos,
+                        "necessita_arte": necessita_arte,
+                        "observacao_interna": observacao.strip(),
+                    })
+                    st.success("Andamento atualizado.")
+                    st.rerun()
+                if b2.button("📋 Selecionar pedido no histórico", key=f"hist_fluxo_{prefixo}_{tid}", use_container_width=True):
+                    st.session_state.alerta_proposta_numero = tarefa.get("numero_proposta")
+                    st.info("A proposta foi selecionada. Abra a aba Histórico para consultá-la.")
 
-            p3, p4, p5 = st.columns(3)
-            status_atual = tarefa.get("status", "A fazer")
-            if status_atual not in STATUS_PRODUCAO:
-                status_atual = "A fazer"
-            status = p3.selectbox("Status", STATUS_PRODUCAO, index=STATUS_PRODUCAO.index(status_atual), key=f"status_{tid}")
-            prioridade_atual = tarefa.get("prioridade", "Normal")
-            if prioridade_atual not in PRIORIDADES_PRODUCAO:
-                prioridade_atual = "Normal"
-            prioridade = p4.selectbox("Prioridade", PRIORIDADES_PRODUCAO, index=PRIORIDADES_PRODUCAO.index(prioridade_atual), key=f"prioridade_{tid}")
-            responsavel = p5.text_input("Responsável", value=str(tarefa.get("responsavel", "")), key=f"resp_{tid}")
-            observacao = st.text_area("Observação interna (não aparece para o cliente)", value=str(tarefa.get("observacao_interna", "")), key=f"obs_prod_{tid}")
+                timeline = tarefa.get("timeline", [])
+                if timeline:
+                    with st.expander("🕒 Linha do tempo"):
+                        for evento in reversed(timeline[-12:]):
+                            st.write(f"**{evento.get('data', '')}** — {evento.get('descricao', '')}")
 
-            a1, a2 = st.columns(2)
-            if a1.button("💾 Salvar produção", key=f"salvar_prod_{tid}", type="primary", use_container_width=True):
-                salvar_tarefa_producao(tid, {
-                    "numero_proposta": tarefa.get("numero_proposta"),
-                    "setor": setor,
-                    "grupo": grupo.strip(),
-                    "status": status,
-                    "prioridade": prioridade,
-                    "responsavel": responsavel.strip(),
-                    "observacao_interna": observacao.strip(),
-                })
-                st.success("Produção atualizada.")
-                st.rerun()
-            if a2.button("📋 Abrir proposta no histórico", key=f"abrir_hist_prod_{tid}", use_container_width=True):
-                st.session_state.alerta_proposta_numero = tarefa.get("numero_proposta")
-                st.info("Abra a aba Histórico; a proposta ficará disponível no painel de alerta.")
+    with visao:
+        f1, f2, f3 = st.columns(3)
+        prazo_filtro = f1.selectbox("Prazo", ["Todos", "Atrasado", "Hoje", "Amanhã", "Próximos 3 dias", "Futuro", "Sem data", "Concluído"], key="fluxo_prazo")
+        status_filtro = f2.selectbox("Etapa", ["Todas"] + STATUS_FLUXO, key="fluxo_etapa")
+        prioridade_filtro = f3.selectbox("Prioridade", ["Todas"] + PRIORIDADES_FLUXO, key="fluxo_prioridade")
+        busca = st.text_input("🔎 Buscar por cliente, pedido, produto, tema, nome ou detalhes", key="fluxo_busca").strip().lower()
+        filtradas = []
+        for t in tarefas_ativas:
+            status = normalizar_status_fluxo(t.get("status"))
+            prazo = classe_prazo_producao(t.get("data_entrega"), status)
+            texto = " ".join(str(t.get(k, "")) for k in ["cliente_nome", "numero_proposta", "produto", "especificacoes", "whatsapp"]).lower()
+            if prazo_filtro != "Todos" and prazo != prazo_filtro: continue
+            if status_filtro != "Todas" and status != status_filtro: continue
+            if prioridade_filtro != "Todas" and t.get("prioridade", "Normal") != prioridade_filtro: continue
+            if busca and busca not in texto: continue
+            filtradas.append(t)
+        st.caption(f"{len(filtradas)} item(ns) encontrado(s).")
+        renderizar_cartoes_fluxo(filtradas, "geral")
+
+    with artes:
+        lista_artes = [t for t in tarefas_ativas if bool(t.get("necessita_arte")) and normalizar_status_fluxo(t.get("status")) in ["Pedido recebido", "Arte pendente", "Arte em desenvolvimento", "Aguardando aprovação", "Arte aprovada"]]
+        renderizar_cartoes_fluxo(lista_artes, "artes")
+
+    with producao:
+        lista_producao = [t for t in tarefas_ativas if normalizar_status_fluxo(t.get("status")) in ["Arte aprovada", "Pronto para produzir", "Em produção", "Montagem/acabamento"]]
+        renderizar_cartoes_fluxo(lista_producao, "producao")
+
+    with entregas:
+        lista_entregas = [t for t in tarefas_ativas if normalizar_status_fluxo(t.get("status")) in ["Pronto", "Entregue"]]
+        renderizar_cartoes_fluxo(lista_entregas, "entregas")
 
 
 with aba4:

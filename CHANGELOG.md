@@ -26,3 +26,12 @@
 - Orçamentos, histórico, relatórios e catálogo integrados.
 - Supabase com fallback JSON.
 - Catálogo personalizado para consulta do cliente.
+
+## 3.2.1 — Fluxo de Pedidos
+- Substituído o modelo de setores pelo fluxo real do pedido.
+- Nova aba “Fluxo de Pedidos” com Visão geral, Artes, Produção e Prontos/entregas.
+- Etapas da arte até a entrega, sem nomes de funcionários.
+- Processos múltiplos: arte, impressão, laser, 3D, balões, montagem, acabamento e entrega.
+- Linha do tempo automática por item.
+- Indicadores de atrasos, entregas do dia, aprovação, produção e pedidos prontos.
+- Pesquisa por cliente, pedido, produto, tema, nome, telefone e detalhes.
