@@ -1,3 +1,13 @@
+ALPHAFEST MANAGER 3.1.0
+
+NOVIDADES:
+- Cadastro automático e manual de clientes.
+- Pesquisa por nome, CPF/CNPJ, WhatsApp, e-mail e observações.
+- Histórico de propostas por cliente.
+- Total orçado, recebido e última proposta.
+- Botão para iniciar novo orçamento com cliente preenchido.
+- Backup de clientes.
+
 ALPHAFEST MANAGER 3.0 ESTÁVEL
 ================================
 

@@ -21,6 +21,8 @@ from cloud_db import (
 st.set_page_config(page_title="Orçamento Alphafest", layout="wide")
 ARQUIVO_HISTORICO = "historico_orcamentos.json"
 ARQUIVO_CATALOGO = "catalogo_db.json"
+ARQUIVO_CLIENTES = "clientes_db.json"
+VERSAO_APP = "3.1.0"
 PASTA_UPLOADS = "uploads"
 os.makedirs(PASTA_UPLOADS, exist_ok=True)
 
@@ -1177,6 +1179,105 @@ def normalizar_texto_busca(prop):
     return " ".join(str(p) for p in partes).lower()
 
 
+# --- CLIENTES (VERSÃO 3.1) ---
+def carregar_clientes():
+    """Carrega o cadastro de clientes do Supabase, com fallback em JSON local."""
+    dados = load_document("clientes_db", ARQUIVO_CLIENTES, [])
+    return dados if isinstance(dados, list) else []
+
+
+def salvar_clientes(lista):
+    if not isinstance(lista, list):
+        raise ValueError("O cadastro de clientes precisa ser uma lista.")
+    save_document("clientes_db", lista, ARQUIVO_CLIENTES)
+
+
+def normalizar_texto_cliente(valor):
+    return re.sub(r"\s+", " ", str(valor or "").strip())
+
+
+def chave_cliente(nome, documento="", whatsapp=""):
+    documento_limpo = re.sub(r"\D", "", str(documento or ""))
+    whatsapp_limpo = re.sub(r"\D", "", str(whatsapp or ""))
+    if documento_limpo:
+        return f"doc:{documento_limpo}"
+    if whatsapp_limpo:
+        return f"wa:{whatsapp_limpo}"
+    return f"nome:{normalizar_texto_cliente(nome).lower()}"
+
+
+def sincronizar_clientes_do_historico():
+    """Inclui no cadastro clientes encontrados nas propostas, sem apagar dados manuais."""
+    clientes = carregar_clientes()
+    por_chave = {
+        chave_cliente(c.get("nome"), c.get("documento"), c.get("whatsapp")): c
+        for c in clientes
+        if normalizar_texto_cliente(c.get("nome"))
+    }
+    alterado = False
+    for prop in carregar_historico():
+        nome = normalizar_texto_cliente(prop.get("cliente_nome", prop.get("cliente", "")))
+        if not nome:
+            continue
+        documento = normalizar_texto_cliente(prop.get("documento", prop.get("cliente_cpf_cnpj", "")))
+        whatsapp = normalizar_texto_cliente(prop.get("whatsapp", prop.get("cliente_wa", "")))
+        chave = chave_cliente(nome, documento, whatsapp)
+        if chave not in por_chave:
+            novo = {
+                "id": f"CLI-{datetime.now().strftime('%Y%m%d%H%M%S%f')}",
+                "nome": nome,
+                "documento": documento,
+                "whatsapp": whatsapp,
+                "email": "",
+                "aniversario": "",
+                "observacoes": "",
+                "origem": "Histórico de propostas",
+                "criado_em": datetime.now().strftime("%d/%m/%Y %H:%M"),
+            }
+            clientes.append(novo)
+            por_chave[chave] = novo
+            alterado = True
+        else:
+            atual = por_chave[chave]
+            if not atual.get("documento") and documento:
+                atual["documento"] = documento
+                alterado = True
+            if not atual.get("whatsapp") and whatsapp:
+                atual["whatsapp"] = whatsapp
+                alterado = True
+    if alterado:
+        salvar_clientes(clientes)
+    return clientes
+
+
+def propostas_do_cliente(cliente):
+    chave = chave_cliente(cliente.get("nome"), cliente.get("documento"), cliente.get("whatsapp"))
+    propostas = []
+    for prop in carregar_historico():
+        pchave = chave_cliente(
+            prop.get("cliente_nome", prop.get("cliente", "")),
+            prop.get("documento", prop.get("cliente_cpf_cnpj", "")),
+            prop.get("whatsapp", prop.get("cliente_wa", "")),
+        )
+        if pchave == chave:
+            propostas.append(prop)
+    return propostas
+
+
+def carregar_cliente_no_orcamento(cliente):
+    """Agenda o cliente para o formulário sem copiar itens de pedido anterior."""
+    carregar_proposta_no_formulario({
+        "cliente_nome": cliente.get("nome", ""),
+        "documento": cliente.get("documento", ""),
+        "whatsapp": cliente.get("whatsapp", ""),
+        "itens": [],
+        "desconto": 0.0,
+        "prazo_dias": "10",
+        "frete_tipo": "Retirada em Itatiba",
+        "validade_dias": "5",
+    }, duplicar=True)
+
+
 # --- CATÁLOGO INTEGRADO ---
 def carregar_catalogo():
     """Carrega catálogo do Supabase, com fallback automático para JSON local."""
@@ -1276,6 +1377,7 @@ with st.sidebar:
     h_atual = carregar_historico()
     st.download_button("📥 BAIXAR BACKUP", data=json.dumps(h_atual, ensure_ascii=False, indent=4), file_name="backup_historico.json", mime="application/json", type="primary", use_container_width=True)
     st.download_button("📦 BACKUP DO CATÁLOGO", data=json.dumps(carregar_catalogo(), ensure_ascii=False, indent=4), file_name="backup_catalogo.json", mime="application/json", use_container_width=True)
+    st.download_button("👥 BACKUP DE CLIENTES", data=json.dumps(carregar_clientes(), ensure_ascii=False, indent=4), file_name="backup_clientes.json", mime="application/json", use_container_width=True)
     backup_enviado = st.file_uploader("💾 RESTAURAR BACKUP", type=["json"], key="restaurar_historico")
     if backup_enviado is not None and st.button("Restaurar agora", use_container_width=True):
         try:
@@ -1289,7 +1391,7 @@ with st.sidebar:
             st.error(f"Não foi possível restaurar: {erro}")
     st.divider()
     st.caption("📌 Sistema de Orçamentos e Catálogo")
-    st.caption("Versão 3.0 Estável")
+    st.caption(f"Versão {VERSAO_APP}")
     st.caption("O poder de estar presente em cada presente...")
 
 # --- ESTADO DO FORMULÁRIO ---
@@ -1402,7 +1504,7 @@ mensagem_sucesso = st.session_state.pop("_mensagem_sucesso_pendente", None)
 if mensagem_sucesso:
     st.success(mensagem_sucesso)
 
-aba1, aba2, aba3, aba4 = st.tabs(["➕ Novo Orçamento", "📋 Histórico", "📊 Relatórios", "📦 Catálogo"])
+aba1, aba2, aba3, aba4, aba5 = st.tabs(["➕ Novo Orçamento", "📋 Histórico", "📊 Relatórios", "📦 Catálogo", "👥 Clientes"])
 
 with aba1:
     if st.session_state.editar_numero:
@@ -1718,3 +1820,139 @@ with aba4:
             html_cliente = gerar_html_catalogo(selecao_cliente, titulo_cliente or "Seleção Alphafest", mostrar_precos)
             st.download_button("📥 Gerar catálogo HTML para o cliente", data=html_cliente, file_name=f"{slug_html(titulo_cliente).lower()}.html", mime="text/html", type="primary", use_container_width=True)
             st.download_button("📚 Gerar catálogo completo", data=gerar_html_catalogo(catalogo, "Catálogo Completo Alphafest", True), file_name="catalogo_completo_alphafest.html", mime="text/html", use_container_width=True)
+
+with aba5:
+    st.header("👥 Clientes")
+    st.caption("Cadastro, pesquisa e histórico de relacionamento com a Alphafest.")
+
+    clientes = sincronizar_clientes_do_historico()
+    if "cliente_edit_id" not in st.session_state:
+        st.session_state.cliente_edit_id = None
+
+    aba_cli_lista, aba_cli_cadastro = st.tabs(["🔎 Consultar clientes", "➕ Cadastrar / Editar"])
+
+    with aba_cli_lista:
+        termo_cli = st.text_input(
+            "Pesquisar por nome, CPF/CNPJ, WhatsApp, e-mail ou observação",
+            key="pesquisa_clientes_v31",
+        ).strip().lower()
+
+        filtrados_cli = []
+        for cli in clientes:
+            base = " ".join(str(cli.get(c, "")) for c in ["nome", "documento", "whatsapp", "email", "observacoes"]).lower()
+            if not termo_cli or termo_cli in base:
+                filtrados_cli.append(cli)
+
+        total_clientes = len(clientes)
+        clientes_com_pedidos = sum(1 for cli in clientes if propostas_do_cliente(cli))
+        total_propostas_clientes = sum(len(propostas_do_cliente(cli)) for cli in clientes)
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Clientes cadastrados", total_clientes)
+        m2.metric("Clientes com propostas", clientes_com_pedidos)
+        m3.metric("Propostas vinculadas", total_propostas_clientes)
+
+        st.write(f"**{len(filtrados_cli)} cliente(s) encontrado(s)**")
+        for cli in sorted(filtrados_cli, key=lambda x: str(x.get("nome", "")).lower()):
+            propostas_cli = propostas_do_cliente(cli)
+            totais = [calcular_valores_proposta(p)[2] for p in propostas_cli]
+            total_orcado_cli = sum(totais)
+            total_pago_cli = sum(calcular_valores_proposta(p)[2] for p in propostas_cli if p.get("pago", False))
+            ultima_data = "—"
+            if propostas_cli:
+                ordenadas = sorted(
+                    propostas_cli,
+                    key=lambda p: data_entrega_segura(p.get("data_geracao")) or date.min,
+                    reverse=True,
+                )
+                ultima_data = ordenadas[0].get("data_geracao", "—")
+
+            titulo_cli = f"{cli.get('nome', 'Cliente')} — {len(propostas_cli)} proposta(s)"
+            with st.expander(titulo_cli):
+                cinfo, cstats = st.columns([1.3, 1])
+                with cinfo:
+                    st.write(f"**CPF/CNPJ:** {cli.get('documento') or 'Não informado'}")
+                    st.write(f"**WhatsApp:** {cli.get('whatsapp') or 'Não informado'}")
+                    st.write(f"**E-mail:** {cli.get('email') or 'Não informado'}")
+                    st.write(f"**Aniversário/Data especial:** {cli.get('aniversario') or 'Não informado'}")
+                    if cli.get("observacoes"):
+                        st.write(f"**Observações:** {cli.get('observacoes')}")
+                with cstats:
+                    st.metric("Total orçado", f"R$ {total_orcado_cli:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                    st.metric("Total recebido", f"R$ {total_pago_cli:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                    st.caption(f"Última proposta: {ultima_data}")
+
+                b1, b2, b3 = st.columns(3)
+                if b1.button("➕ Novo orçamento", key=f"cli_orc_{cli.get('id')}", use_container_width=True):
+                    carregar_cliente_no_orcamento(cli)
+                    st.rerun()
+                if b2.button("✏️ Editar cliente", key=f"cli_edit_{cli.get('id')}", use_container_width=True):
+                    st.session_state.cliente_edit_id = cli.get("id")
+                    st.rerun()
+                if b3.button("🗑️ Excluir cadastro", key=f"cli_del_{cli.get('id')}", use_container_width=True):
+                    restantes = [c for c in clientes if c.get("id") != cli.get("id")]
+                    salvar_clientes(restantes)
+                    st.rerun()
+
+                if propostas_cli:
+                    st.markdown("#### Histórico de propostas")
+                    linhas_cli = []
+                    for pcli in propostas_cli:
+                        _, _, total_cli = calcular_valores_proposta(pcli)
+                        linhas_cli.append({
+                            "Proposta": pcli.get("numero_proposta", ""),
+                            "Emissão": pcli.get("data_geracao", ""),
+                            "Entrega": pcli.get("data_entrega", ""),
+                            "Total": total_cli,
+                            "Pago": "Sim" if pcli.get("pago") else "Não",
+                            "Entregue": "Sim" if pcli.get("entregue") else "Não",
+                        })
+                    st.dataframe(
+                        pd.DataFrame(linhas_cli),
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={"Total": st.column_config.NumberColumn(format="R$ %.2f")},
+                    )
+
+    with aba_cli_cadastro:
+        edit_id = st.session_state.cliente_edit_id
+        cliente_edicao = next((c for c in clientes if c.get("id") == edit_id), None)
+        st.subheader("✏️ Editar cliente" if cliente_edicao else "➕ Novo cliente")
+        c1, c2 = st.columns(2)
+        cli_nome = c1.text_input("Nome / Razão Social", value=cliente_edicao.get("nome", "") if cliente_edicao else "", key=f"cli_nome_{edit_id}")
+        cli_doc = c1.text_input("CPF / CNPJ", value=cliente_edicao.get("documento", "") if cliente_edicao else "", key=f"cli_doc_{edit_id}")
+        cli_wa = c1.text_input("WhatsApp", value=cliente_edicao.get("whatsapp", "") if cliente_edicao else "", key=f"cli_wa_{edit_id}")
+        cli_email = c2.text_input("E-mail", value=cliente_edicao.get("email", "") if cliente_edicao else "", key=f"cli_email_{edit_id}")
+        cli_aniv = c2.text_input("Aniversário / Data especial", value=cliente_edicao.get("aniversario", "") if cliente_edicao else "", key=f"cli_aniv_{edit_id}")
+        cli_obs = c2.text_area("Observações", value=cliente_edicao.get("observacoes", "") if cliente_edicao else "", key=f"cli_obs_{edit_id}")
+        ac1, ac2 = st.columns(2)
+        if ac1.button("💾 Salvar cliente", type="primary", use_container_width=True):
+            if not cli_nome.strip():
+                st.warning("Informe o nome do cliente.")
+            else:
+                registro_cli = {
+                    "id": cliente_edicao.get("id") if cliente_edicao else f"CLI-{datetime.now().strftime('%Y%m%d%H%M%S%f')}",
+                    "nome": cli_nome.strip(),
+                    "documento": cli_doc.strip(),
+                    "whatsapp": cli_wa.strip(),
+                    "email": cli_email.strip(),
+                    "aniversario": cli_aniv.strip(),
+                    "observacoes": cli_obs.strip(),
+                    "origem": cliente_edicao.get("origem", "Cadastro manual") if cliente_edicao else "Cadastro manual",
+                    "criado_em": cliente_edicao.get("criado_em", datetime.now().strftime("%d/%m/%Y %H:%M")) if cliente_edicao else datetime.now().strftime("%d/%m/%Y %H:%M"),
+                }
+                if cliente_edicao:
+                    clientes = [registro_cli if c.get("id") == edit_id else c for c in clientes]
+                else:
+                    existente = next((c for c in clientes if chave_cliente(c.get("nome"), c.get("documento"), c.get("whatsapp")) == chave_cliente(cli_nome, cli_doc, cli_wa)), None)
+                    if existente:
+                        st.warning("Já existe um cliente com o mesmo documento, WhatsApp ou nome.")
+                        st.stop()
+                    clientes.append(registro_cli)
+                salvar_clientes(clientes)
+                st.session_state.cliente_edit_id = None
+                st.success("Cliente salvo.")
+                st.rerun()
+        if cliente_edicao and ac2.button("Cancelar edição", use_container_width=True):
+            st.session_state.cliente_edit_id = None
+            st.rerun()
+
