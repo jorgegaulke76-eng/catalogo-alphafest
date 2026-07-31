@@ -22,7 +22,7 @@ st.set_page_config(page_title="Orçamento Alphafest", layout="wide")
 ARQUIVO_HISTORICO = "historico_orcamentos.json"
 ARQUIVO_CATALOGO = "catalogo_db.json"
 ARQUIVO_CLIENTES = "clientes_db.json"
-VERSAO_APP = "3.1.0"
+VERSAO_APP = "3.1.1"
 PASTA_UPLOADS = "uploads"
 os.makedirs(PASTA_UPLOADS, exist_ok=True)
 
@@ -1341,7 +1341,7 @@ def gerar_html_catalogo(produtos, titulo="Catálogo Alphafest", mostrar_precos=T
             imagem_html = f'<img src="{src}" alt="{nome}" onclick="abrirImagem(this.src)">' if src else '<div class="sem-imagem">Sem imagem</div>'
             preco_html = f'<div class="preco">{html.escape(formatar_preco_catalogo(produto.get("Preco")))}</div>' if mostrar_precos else ''
             msg = quote(f"Olá! Gostaria de informações sobre: {produto.get('Nome', 'produto')}")
-            cards.append(f'<article class="card">{imagem_html}<div class="card-body"><h3>{nome}</h3><p>{descricao}</p>{preco_html}<a class="btn" target="_blank" href="https://wa.me/551197249533?text={msg}">Consultar no WhatsApp</a></div></article>')
+            cards.append(f'<article class="card">{imagem_html}<div class="card-body"><h3>{nome}</h3><p>{descricao}</p>{preco_html}<a class="btn" target="_blank" href="https://wa.me/5511972949533?text={msg}">Consultar no WhatsApp</a></div></article>')
         cards_por_categoria.append(f'<section id="{slug_html(categoria)}"><h2>{html.escape(categoria)}</h2><div class="grid">{"".join(cards)}</div></section>')
 
     links = "".join(f'<a href="#{slug_html(c)}">{html.escape(c)}</a>' for c in categorias)
@@ -1414,9 +1414,6 @@ iniciar_estado("alerta_proposta_numero", None)
 aplicar_limpeza_formulario_pendente()
 aplicar_proposta_pendente_no_formulario()
 
-st.title("📄 ORÇAMENTOS ALPHAFEST")
-st.caption("Personalizados • Impressão 3D • Papelaria")
-
 # --- ALERTAS DE ENTREGA MELHORADOS ---
 hoje = date.today()
 alertas_hoje, alertas_atrasados, alertas_proximos = [], [], []
@@ -1432,7 +1429,7 @@ for p in carregar_historico():
     elif dias <= 3:
         alertas_proximos.append((p, dias))
 
-def renderizar_alertas_clicaveis(titulo, alertas, tipo):
+def renderizar_alertas_clicaveis(titulo, alertas, tipo, prefixo):
     if not alertas:
         return
     if tipo == "atrasado":
@@ -1450,55 +1447,59 @@ def renderizar_alertas_clicaveis(titulo, alertas, tipo):
         cliente_alerta = p.get("cliente_nome", "Cliente não informado")
         c1, c2 = st.columns([7, 1])
         c1.write(f"**{numero_alerta} — {cliente_alerta}** · {situacao}")
-        if c2.button("Abrir", key=f"abrir_alerta_{tipo}_{numero_alerta}", use_container_width=True):
+        if c2.button("Abrir", key=f"abrir_alerta_{prefixo}_{tipo}_{numero_alerta}", use_container_width=True):
             st.session_state.alerta_proposta_numero = numero_alerta
             st.rerun()
 
-renderizar_alertas_clicaveis("🚨 Entregas atrasadas", alertas_atrasados, "atrasado")
-renderizar_alertas_clicaveis("⚠️ Entregas para hoje", alertas_hoje, "hoje")
-renderizar_alertas_clicaveis("📅 Próximas entregas", alertas_proximos, "proximo")
+def renderizar_painel_alertas(prefixo):
+    renderizar_alertas_clicaveis("🚨 Entregas atrasadas", alertas_atrasados, "atrasado", prefixo)
+    renderizar_alertas_clicaveis("⚠️ Entregas para hoje", alertas_hoje, "hoje", prefixo)
+    renderizar_alertas_clicaveis("📅 Próximas entregas", alertas_proximos, "proximo", prefixo)
 
-if st.session_state.alerta_proposta_numero:
+    if not st.session_state.alerta_proposta_numero:
+        return
+
     proposta_alerta = next(
         (p for p in carregar_historico() if p.get("numero_proposta") == st.session_state.alerta_proposta_numero),
         None,
     )
-    if proposta_alerta:
-        subtotal_alerta, desconto_alerta, total_alerta = calcular_valores_proposta(proposta_alerta)
-        with st.expander(
-            f"🔎 Proposta {proposta_alerta.get('numero_proposta')} — {proposta_alerta.get('cliente_nome')}",
-            expanded=True,
-        ):
-            st.write(f"**Entrega:** {proposta_alerta.get('data_entrega', 'Não informada')}")
-            st.write(f"**WhatsApp:** {proposta_alerta.get('whatsapp', proposta_alerta.get('cliente_wa', 'Não informado')) or 'Não informado'}")
-            st.write("**Itens:**")
-            for item in proposta_alerta.get("itens", []) or []:
-                st.write(
-                    f"• {item.get('produto', 'Produto')} — Qtd: {item.get('quantidade', 0)} — "
-                    f"R$ {valor_float(item.get('valor_unitario')):,.2f}"
-                )
-                if item.get("especificacoes"):
-                    st.caption(item.get("especificacoes"))
-            st.write(
-                f"**Total:** R$ {total_alerta:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-            )
-            a1, a2, a3 = st.columns(3)
-            if a1.button("✏️ Editar proposta", key=f"editar_alerta_{proposta_alerta.get('numero_proposta')}"):
-                carregar_proposta_no_formulario(proposta_alerta, duplicar=False)
-                st.session_state.alerta_proposta_numero = None
-                st.rerun()
-            a2.download_button(
-                "📄 Baixar HTML",
-                gerar_html(proposta_alerta),
-                file_name=f"{proposta_alerta.get('numero_proposta', 'proposta')}.html",
-                mime="text/html",
-                key=f"html_alerta_{proposta_alerta.get('numero_proposta')}",
-            )
-            if a3.button("Fechar", key=f"fechar_alerta_{proposta_alerta.get('numero_proposta')}"):
-                st.session_state.alerta_proposta_numero = None
-                st.rerun()
-    else:
+    if not proposta_alerta:
         st.session_state.alerta_proposta_numero = None
+        return
+
+    _, _, total_alerta = calcular_valores_proposta(proposta_alerta)
+    with st.expander(
+        f"🔎 Proposta {proposta_alerta.get('numero_proposta')} — {proposta_alerta.get('cliente_nome')}",
+        expanded=True,
+    ):
+        st.write(f"**Entrega:** {proposta_alerta.get('data_entrega', 'Não informada')}")
+        st.write(f"**WhatsApp:** {proposta_alerta.get('whatsapp', proposta_alerta.get('cliente_wa', 'Não informado')) or 'Não informado'}")
+        st.write("**Itens:**")
+        for item in proposta_alerta.get("itens", []) or []:
+            st.write(
+                f"• {item.get('produto', 'Produto')} — Qtd: {item.get('quantidade', 0)} — "
+                f"R$ {valor_float(item.get('valor_unitario')):,.2f}"
+            )
+            if item.get("especificacoes"):
+                st.caption(item.get("especificacoes"))
+        st.write(
+            f"**Total:** R$ {total_alerta:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+        a1, a2, a3 = st.columns(3)
+        if a1.button("✏️ Editar proposta", key=f"editar_alerta_{prefixo}_{proposta_alerta.get('numero_proposta')}"):
+            carregar_proposta_no_formulario(proposta_alerta, duplicar=False)
+            st.session_state.alerta_proposta_numero = None
+            st.rerun()
+        a2.download_button(
+            "📄 Baixar HTML",
+            gerar_html(proposta_alerta),
+            file_name=f"{proposta_alerta.get('numero_proposta', 'proposta')}.html",
+            mime="text/html",
+            key=f"html_alerta_{prefixo}_{proposta_alerta.get('numero_proposta')}",
+        )
+        if a3.button("Fechar", key=f"fechar_alerta_{prefixo}_{proposta_alerta.get('numero_proposta')}"):
+            st.session_state.alerta_proposta_numero = None
+            st.rerun()
 
 mensagem_sucesso = st.session_state.pop("_mensagem_sucesso_pendente", None)
 if mensagem_sucesso:
@@ -1507,6 +1508,23 @@ if mensagem_sucesso:
 aba1, aba2, aba3, aba4, aba5 = st.tabs(["➕ Novo Orçamento", "📋 Histórico", "📊 Relatórios", "📦 Catálogo", "👥 Clientes"])
 
 with aba1:
+    # Cabeçalho centralizado da área de orçamento.
+    logo_aba1_b64, _ = encontrar_logo_base64()
+    if logo_aba1_b64:
+        col_logo_esq, col_logo_centro, col_logo_dir = st.columns([1, 1, 1])
+        with col_logo_centro:
+            try:
+                st.image(base64.b64decode(logo_aba1_b64), use_container_width=True)
+            except Exception:
+                pass
+    st.markdown(
+        "<h1 style='text-align:center; margin-bottom:0;'>📄 ORÇAMENTOS ALPHAFEST</h1>"
+        "<p style='text-align:center; margin-top:4px; color:#6b7280;'>"
+        "Personalizados • Impressão 3D • Papelaria</p>",
+        unsafe_allow_html=True,
+    )
+    renderizar_painel_alertas("novo_orcamento")
+
     if st.session_state.editar_numero:
         st.info(f"✏️ Editando a proposta {st.session_state.editar_numero}")
         if st.button("Cancelar edição"):
@@ -1603,6 +1621,8 @@ with aba1:
             st.rerun()
 
 with aba2:
+    renderizar_painel_alertas("historico")
+
     historico = carregar_historico()
     busca = st.text_input("🔎 Pesquisar por cliente, proposta, telefone ou produto")
     if busca.strip():
