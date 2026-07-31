@@ -1,3 +1,17 @@
+# CHANGELOG
+
+## 3.2.0 — Produção
+
+- Nova aba Produção integrada às propostas.
+- Tarefas automáticas por item do orçamento.
+- Setores e subgrupos de balões configurados.
+- Grupos livres para Papelaria, 3D, Lembrancinhas e Gráfica rápida.
+- Status, prioridade, responsável e observações internas.
+- Filtros por prazo, setor, status, prioridade e pesquisa.
+- Indicadores de atrasos, entregas de hoje, itens em produção e prontos.
+- Ao concluir todos os itens, a proposta é marcada como entregue.
+- Persistência no Supabase com fallback em producao_db.json.
+
 # Alphafest Manager — Changelog
 
 ## 3.1.0

@@ -1,3 +1,12 @@
+ALPHAFEST MANAGER 3.2.0 — PRODUÇÃO
+
+ATUALIZAÇÃO:
+1. Envie todos os arquivos desta pasta ao GitHub, substituindo os anteriores.
+2. Inclua o novo arquivo producao_db.json.
+3. Não precisa executar SQL novo: a produção usa o mesmo documento app_data do Supabase.
+4. Reinicie o aplicativo no Streamlit.
+5. Abra a aba Produção; os itens das propostas serão criados automaticamente.
+
 ALPHAFEST MANAGER 3.1.0
 
 NOVIDADES:

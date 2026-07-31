@@ -22,7 +22,8 @@ st.set_page_config(page_title="Orçamento Alphafest", layout="wide")
 ARQUIVO_HISTORICO = "historico_orcamentos.json"
 ARQUIVO_CATALOGO = "catalogo_db.json"
 ARQUIVO_CLIENTES = "clientes_db.json"
-VERSAO_APP = "3.1.1"
+ARQUIVO_PRODUCAO = "producao_db.json"
+VERSAO_APP = "3.2.0"
 PASTA_UPLOADS = "uploads"
 os.makedirs(PASTA_UPLOADS, exist_ok=True)
 
@@ -1278,6 +1279,165 @@ def carregar_cliente_no_orcamento(cliente):
     }, duplicar=True)
 
 
+
+# --- PRODUÇÃO (VERSÃO 3.2) ---
+SETORES_PRODUCAO = [
+    "Papelaria personalizada",
+    "Papel de arroz",
+    "Balões",
+    "Impressão 3D",
+    "Lembrancinhas",
+    "Montagem/decoração",
+    "Gráfica rápida",
+    "Outros",
+]
+
+GRUPOS_BALOES = [
+    "Balões Gás Hélio",
+    "Balloon Cake",
+    "Bubble 55 cm",
+    "Bubble Médio",
+    "Bubble Pequeno",
+    "Bubble com Haste",
+    "Balões Metalizados Personagem",
+    "Balão Metalizado com Vareta",
+    "Arco de Balão Tradicional",
+    "Arco de Balão Desconstruído",
+]
+
+STATUS_PRODUCAO = ["A fazer", "Em produção", "Aguardando aprovação", "Pronto", "Entregue"]
+PRIORIDADES_PRODUCAO = ["Normal", "Alta", "Urgente"]
+
+
+def carregar_producao():
+    dados = load_document("producao_db", ARQUIVO_PRODUCAO, [])
+    return dados if isinstance(dados, list) else []
+
+
+def salvar_producao(lista):
+    if not isinstance(lista, list):
+        raise ValueError("A produção precisa ser uma lista.")
+    save_document("producao_db", lista, ARQUIVO_PRODUCAO)
+
+
+def inferir_setor_grupo(produto):
+    nome = str(produto or "").strip().lower()
+    if "papel de arroz" in nome or "papel arroz" in nome:
+        return "Papel de arroz", "Papel de arroz"
+    if any(x in nome for x in ["bubble", "balão", "balao", "balloon", "arco de bal"]):
+        mapa = [
+            (["gás hélio", "gas helio", "hélio", "helio"], "Balões Gás Hélio"),
+            (["balloon cake", "baloon cake", "balão cake", "balao cake"], "Balloon Cake"),
+            (["bubble 55"], "Bubble 55 cm"),
+            (["bubble médio", "bubble medio"], "Bubble Médio"),
+            (["bubble pequeno"], "Bubble Pequeno"),
+            (["bubble com haste", "bubble haste"], "Bubble com Haste"),
+            (["metalizado personagem"], "Balões Metalizados Personagem"),
+            (["metalizado com vareta", "metalizado vareta"], "Balão Metalizado com Vareta"),
+            (["arco", "tradicional"], "Arco de Balão Tradicional"),
+            (["desconstruído", "desconstruido"], "Arco de Balão Desconstruído"),
+        ]
+        for termos, grupo in mapa:
+            if all(t in nome for t in termos) or any(t in nome for t in termos if len(termos) == 1):
+                return "Balões", grupo
+        return "Balões", "Outros Balões"
+    if "3d" in nome or "impressão 3d" in nome or "impressao 3d" in nome:
+        return "Impressão 3D", str(produto or "Impressão 3D").strip()
+    if any(x in nome for x in ["lembranc", "chaveiro", "tubolata", "latinha", "sacolinha"]):
+        return "Lembrancinhas", str(produto or "Lembrancinhas").strip()
+    if any(x in nome for x in ["montagem", "decoração", "decoracao", "instalação", "instalacao"]):
+        return "Montagem/decoração", "Montagem/decoração"
+    if any(x in nome for x in ["banner", "adesivo", "tag", "cartão", "cartao", "impressão", "impressao", "faixa", "panfleto"]):
+        return "Gráfica rápida", str(produto or "Gráfica rápida").strip()
+    if any(x in nome for x in ["topo", "caixa", "convite", "papelaria", "centro de mesa", "cachepô", "cachepo"]):
+        return "Papelaria personalizada", str(produto or "Papelaria personalizada").strip()
+    return "Outros", str(produto or "Outros").strip()
+
+
+def sincronizar_producao_com_propostas():
+    """Cria tarefas para os itens das propostas sem apagar classificações manuais."""
+    tarefas = carregar_producao()
+    existentes = {t.get("id"): t for t in tarefas}
+    ids_ativos = set()
+    alterado = False
+    for prop in carregar_historico():
+        numero = str(prop.get("numero_proposta", "SEM-NUMERO"))
+        for indice, item in enumerate(prop.get("itens", []) or []):
+            tarefa_id = f"{numero}::{indice}"
+            ids_ativos.add(tarefa_id)
+            setor, grupo = inferir_setor_grupo(item.get("produto", ""))
+            base = {
+                "id": tarefa_id,
+                "numero_proposta": numero,
+                "indice_item": indice,
+                "cliente_nome": prop.get("cliente_nome", "Cliente não informado"),
+                "data_entrega": prop.get("data_entrega", ""),
+                "produto": item.get("produto", "Produto não informado"),
+                "especificacoes": item.get("especificacoes", ""),
+                "quantidade": item.get("quantidade", 0),
+                "setor": setor,
+                "grupo": grupo,
+                "status": "Entregue" if prop.get("entregue", False) else "A fazer",
+                "prioridade": "Normal",
+                "responsavel": "",
+                "observacao_interna": "",
+                "atualizado_em": datetime.now().strftime("%d/%m/%Y %H:%M"),
+            }
+            if tarefa_id not in existentes:
+                tarefas.append(base)
+                existentes[tarefa_id] = base
+                alterado = True
+            else:
+                atual = existentes[tarefa_id]
+                # Atualiza apenas dados vindos da proposta; preserva gestão manual.
+                for campo in ["cliente_nome", "data_entrega", "produto", "especificacoes", "quantidade"]:
+                    if atual.get(campo) != base[campo]:
+                        atual[campo] = base[campo]
+                        alterado = True
+                if prop.get("entregue", False) and atual.get("status") != "Entregue":
+                    atual["status"] = "Entregue"
+                    alterado = True
+    # Mantém tarefas antigas para histórico, mas as sinaliza como órfãs se a proposta/item não existir mais.
+    for tarefa in tarefas:
+        tarefa["ativa"] = tarefa.get("id") in ids_ativos
+    if alterado:
+        salvar_producao(tarefas)
+    return tarefas
+
+
+def salvar_tarefa_producao(tarefa_id, novos_dados):
+    tarefas = carregar_producao()
+    for tarefa in tarefas:
+        if tarefa.get("id") == tarefa_id:
+            tarefa.update(novos_dados)
+            tarefa["atualizado_em"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+            break
+    salvar_producao(tarefas)
+
+    # Quando todos os itens ativos da proposta forem entregues, marca a proposta como entregue.
+    numero = novos_dados.get("numero_proposta")
+    if numero:
+        relacionadas = [t for t in tarefas if t.get("numero_proposta") == numero and t.get("ativa", True)]
+        if relacionadas and all(t.get("status") == "Entregue" for t in relacionadas):
+            alternar_status(numero, "entregue", True)
+
+
+def classe_prazo_producao(data_txt, status):
+    if status == "Entregue":
+        return "Concluído"
+    data_item = data_entrega_segura(data_txt)
+    if not data_item:
+        return "Sem data"
+    dias = (data_item - date.today()).days
+    if dias < 0:
+        return "Atrasado"
+    if dias == 0:
+        return "Hoje"
+    if dias <= 3:
+        return "Próximos 3 dias"
+    return "Futuro"
+
+
 # --- CATÁLOGO INTEGRADO ---
 def carregar_catalogo():
     """Carrega catálogo do Supabase, com fallback automático para JSON local."""
@@ -1505,7 +1665,7 @@ mensagem_sucesso = st.session_state.pop("_mensagem_sucesso_pendente", None)
 if mensagem_sucesso:
     st.success(mensagem_sucesso)
 
-aba1, aba2, aba3, aba4, aba5 = st.tabs(["➕ Novo Orçamento", "📋 Histórico", "📊 Relatórios", "📦 Catálogo", "👥 Clientes"])
+aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs(["➕ Novo Orçamento", "📋 Histórico", "🏭 Produção", "📊 Relatórios", "📦 Catálogo", "👥 Clientes"])
 
 with aba1:
     # Cabeçalho centralizado da área de orçamento.
@@ -1677,7 +1837,119 @@ with aba2:
             s1.checkbox("Pago", value=prop.get("pago", False), key=f"p_{num_p}", on_change=alternar_status, args=(num_p, "pago", not prop.get("pago", False)))
             s2.checkbox("Entregue", value=prop.get("entregue", False), key=f"e_{num_p}", on_change=alternar_status, args=(num_p, "entregue", not prop.get("entregue", False)))
 
+
 with aba3:
+    st.markdown("<h2 style='text-align:center;'>🏭 Produção</h2>", unsafe_allow_html=True)
+    st.caption("Acompanhe cada item dos pedidos por setor, grupo, prazo, prioridade e status.")
+
+    tarefas = sincronizar_producao_com_propostas()
+    tarefas_ativas = [t for t in tarefas if t.get("ativa", True)]
+
+    # Filtros
+    f1, f2, f3, f4 = st.columns(4)
+    filtro_prazo = f1.selectbox("Prazo", ["Todos", "Atrasado", "Hoje", "Próximos 3 dias", "Futuro", "Sem data", "Concluído"])
+    filtro_setor = f2.selectbox("Setor", ["Todos"] + SETORES_PRODUCAO)
+    filtro_status = f3.selectbox("Status", ["Todos"] + STATUS_PRODUCAO)
+    filtro_prioridade = f4.selectbox("Prioridade", ["Todas"] + PRIORIDADES_PRODUCAO)
+    busca_prod = st.text_input("🔎 Buscar por cliente, proposta, produto ou detalhes", key="busca_producao")
+
+    filtradas = []
+    for tarefa in tarefas_ativas:
+        prazo_tarefa = classe_prazo_producao(tarefa.get("data_entrega"), tarefa.get("status"))
+        texto_busca = " ".join(str(tarefa.get(c, "")) for c in ["cliente_nome", "numero_proposta", "produto", "especificacoes", "grupo"]).lower()
+        if filtro_prazo != "Todos" and prazo_tarefa != filtro_prazo:
+            continue
+        if filtro_setor != "Todos" and tarefa.get("setor") != filtro_setor:
+            continue
+        if filtro_status != "Todos" and tarefa.get("status") != filtro_status:
+            continue
+        if filtro_prioridade != "Todas" and tarefa.get("prioridade") != filtro_prioridade:
+            continue
+        if busca_prod.strip() and busca_prod.strip().lower() not in texto_busca:
+            continue
+        filtradas.append(tarefa)
+
+    # Indicadores
+    atrasadas = sum(1 for t in tarefas_ativas if classe_prazo_producao(t.get("data_entrega"), t.get("status")) == "Atrasado")
+    hoje_prod = sum(1 for t in tarefas_ativas if classe_prazo_producao(t.get("data_entrega"), t.get("status")) == "Hoje")
+    em_producao = sum(1 for t in tarefas_ativas if t.get("status") == "Em produção")
+    prontas = sum(1 for t in tarefas_ativas if t.get("status") == "Pronto")
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Atrasados", atrasadas)
+    m2.metric("Entrega hoje", hoje_prod)
+    m3.metric("Em produção", em_producao)
+    m4.metric("Prontos", prontas)
+
+    ordem_prioridade = {"Urgente": 0, "Alta": 1, "Normal": 2}
+    filtradas.sort(key=lambda t: (
+        1 if t.get("status") == "Entregue" else 0,
+        data_entrega_segura(t.get("data_entrega")) or date.max,
+        ordem_prioridade.get(t.get("prioridade"), 9),
+        str(t.get("cliente_nome", "")),
+    ))
+    st.caption(f"{len(filtradas)} item(ns) de produção encontrado(s).")
+
+    if not filtradas:
+        st.info("Nenhum item de produção corresponde aos filtros.")
+
+    for tarefa in filtradas:
+        tid = tarefa.get("id")
+        prazo_tarefa = classe_prazo_producao(tarefa.get("data_entrega"), tarefa.get("status"))
+        icone_prazo = {"Atrasado": "🚨", "Hoje": "⚠️", "Próximos 3 dias": "📅", "Concluído": "✅"}.get(prazo_tarefa, "📦")
+        titulo = (
+            f"{icone_prazo} {tarefa.get('data_entrega') or 'Sem data'} | "
+            f"{tarefa.get('cliente_nome')} | {tarefa.get('produto')} | "
+            f"{tarefa.get('status', 'A fazer')}"
+        )
+        with st.expander(titulo):
+            st.write(f"**Proposta:** {tarefa.get('numero_proposta')}")
+            st.write(f"**Quantidade:** {tarefa.get('quantidade')}")
+            st.write(f"**Detalhes:** {tarefa.get('especificacoes') or 'Não informado'}")
+            st.caption(f"Situação do prazo: {prazo_tarefa} • Última atualização: {tarefa.get('atualizado_em', '—')}")
+
+            p1, p2 = st.columns(2)
+            setor_atual = tarefa.get("setor") if tarefa.get("setor") in SETORES_PRODUCAO else "Outros"
+            setor = p1.selectbox("Setor", SETORES_PRODUCAO, index=SETORES_PRODUCAO.index(setor_atual), key=f"setor_{tid}")
+            if setor == "Balões":
+                grupos = GRUPOS_BALOES + ["Outros Balões"]
+                grupo_atual = tarefa.get("grupo", "Outros Balões")
+                if grupo_atual not in grupos:
+                    grupos.append(grupo_atual)
+                grupo = p2.selectbox("Grupo/Subcategoria", grupos, index=grupos.index(grupo_atual), key=f"grupo_{tid}")
+            else:
+                grupo = p2.text_input("Grupo/Subcategoria", value=str(tarefa.get("grupo", "")), key=f"grupo_{tid}")
+
+            p3, p4, p5 = st.columns(3)
+            status_atual = tarefa.get("status", "A fazer")
+            if status_atual not in STATUS_PRODUCAO:
+                status_atual = "A fazer"
+            status = p3.selectbox("Status", STATUS_PRODUCAO, index=STATUS_PRODUCAO.index(status_atual), key=f"status_{tid}")
+            prioridade_atual = tarefa.get("prioridade", "Normal")
+            if prioridade_atual not in PRIORIDADES_PRODUCAO:
+                prioridade_atual = "Normal"
+            prioridade = p4.selectbox("Prioridade", PRIORIDADES_PRODUCAO, index=PRIORIDADES_PRODUCAO.index(prioridade_atual), key=f"prioridade_{tid}")
+            responsavel = p5.text_input("Responsável", value=str(tarefa.get("responsavel", "")), key=f"resp_{tid}")
+            observacao = st.text_area("Observação interna (não aparece para o cliente)", value=str(tarefa.get("observacao_interna", "")), key=f"obs_prod_{tid}")
+
+            a1, a2 = st.columns(2)
+            if a1.button("💾 Salvar produção", key=f"salvar_prod_{tid}", type="primary", use_container_width=True):
+                salvar_tarefa_producao(tid, {
+                    "numero_proposta": tarefa.get("numero_proposta"),
+                    "setor": setor,
+                    "grupo": grupo.strip(),
+                    "status": status,
+                    "prioridade": prioridade,
+                    "responsavel": responsavel.strip(),
+                    "observacao_interna": observacao.strip(),
+                })
+                st.success("Produção atualizada.")
+                st.rerun()
+            if a2.button("📋 Abrir proposta no histórico", key=f"abrir_hist_prod_{tid}", use_container_width=True):
+                st.session_state.alerta_proposta_numero = tarefa.get("numero_proposta")
+                st.info("Abra a aba Histórico; a proposta ficará disponível no painel de alerta.")
+
+
+with aba4:
     h = carregar_historico()
     if not h:
         st.info("📊 Ainda não existem propostas cadastradas para gerar relatórios.")
@@ -1750,7 +2022,7 @@ with aba3:
 
 
 
-with aba4:
+with aba5:
     st.header("📦 Catálogo Alphafest")
     st.caption("Cadastro interno e geração de seleções específicas para consulta do cliente.")
     catalogo = carregar_catalogo()
@@ -1841,7 +2113,7 @@ with aba4:
             st.download_button("📥 Gerar catálogo HTML para o cliente", data=html_cliente, file_name=f"{slug_html(titulo_cliente).lower()}.html", mime="text/html", type="primary", use_container_width=True)
             st.download_button("📚 Gerar catálogo completo", data=gerar_html_catalogo(catalogo, "Catálogo Completo Alphafest", True), file_name="catalogo_completo_alphafest.html", mime="text/html", use_container_width=True)
 
-with aba5:
+with aba6:
     st.header("👥 Clientes")
     st.caption("Cadastro, pesquisa e histórico de relacionamento com a Alphafest.")
 
